@@ -358,6 +358,12 @@ One line each, dated, so they are not relitigated.
   split button, mix in its menu) is the only random step. Pins, Swap and
   Reshuffle are gone. Rejected: the random deal with holds ("the most
   confusing thing ever"). See docs/decisions/0004.
+- **Game logos (2026-10-02).** A game can carry an uploaded logo (chip →
+  Add Logo); it replaces the coloured icon on every surface. His picks are
+  one-colour white marks (the MW wordmark, the Rocket League car) because
+  they "don't detract from the square itself". Rejected: full-colour box-art
+  icons (mush at 16px) and the coloured shield/badge emblems. White marks
+  vanish on Latte; nobody plays on Latte, so it is accepted.
 
 ---
 

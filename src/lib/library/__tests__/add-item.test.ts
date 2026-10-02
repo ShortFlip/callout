@@ -7,9 +7,9 @@ const COD = 'game-cod';
 const MECH = 'tag-mechanics';
 
 const TAGS: Tag[] = [
-  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'car' },
-  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair' },
-  { id: MECH, ownerId: 'me', name: 'Mechanics', kind: 'tag', color: null, icon: null },
+  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'car', logoUrl: null },
+  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair', logoUrl: null },
+  { id: MECH, ownerId: 'me', name: 'Mechanics', kind: 'tag', color: null, icon: null, logoUrl: null },
 ];
 const GAME_IDS = new Set([RL, COD]);
 

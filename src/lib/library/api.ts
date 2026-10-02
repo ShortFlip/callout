@@ -65,7 +65,15 @@ function expectRows(context: string, message: string, touched: number, expected:
   if (touched < expected) fail(context, message, `expected ${expected} rows, touched ${touched}`);
 }
 
-type TagRow = { id: string; owner_id: string; name: string; kind: string; color: string | null; icon: string | null };
+type TagRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  kind: string;
+  color: string | null;
+  icon: string | null;
+  logo_url: string | null;
+};
 
 function toTag(row: TagRow): Tag {
   const kind: TagKind = row.kind === 'game' ? 'game' : 'tag';
@@ -77,6 +85,7 @@ function toTag(row: TagRow): Tag {
     // Narrowed, never cast: a colour or icon key the app does not know draws nothing.
     color: kind === 'game' && isGameColorKey(row.color) ? row.color : null,
     icon: kind === 'game' && isGameIconKey(row.icon) ? row.icon : null,
+    logoUrl: kind === 'game' ? row.logo_url : null,
   };
 }
 
@@ -86,7 +95,7 @@ export async function loadLibrary(ownerId: string): Promise<{ items: LibraryItem
   try {
     const { data: tagRows, error: tagError } = await supabase
       .from('tags')
-      .select('id, owner_id, name, kind, color, icon')
+      .select('id, owner_id, name, kind, color, icon, logo_url')
       .eq('owner_id', ownerId)
       .order('created_at', { ascending: true })
       .order('name', { ascending: true });
@@ -284,11 +293,69 @@ export async function createTag(
       color: input.kind === 'game' ? input.color : null,
       icon: input.kind === 'game' ? input.icon : null,
     })
-    .select('id, owner_id, name, kind, color, icon')
+    .select('id, owner_id, name, kind, color, icon, logo_url')
     .single();
   if (error && isUnique(error)) fail('createTag', `You already have a tag called “${name}”.`, error);
   if (error || !data) fail('createTag', input.kind === 'game' ? 'Could not create that game.' : 'Could not create that tag.', error);
   return toTag(data);
+}
+
+const LOGO_BUCKET = 'game-logos';
+
+/**
+ * Upload a game's logo (already shrunk to a 128px PNG by the caller) and point
+ * the tag at it, or clear it with `png = null`. Returns the new URL or null.
+ * The file is named by the tag id so a re-upload replaces it; the ?t= stamp
+ * busts the CDN cache the way avatars do. Owner only: a blocked update fails.
+ */
+export async function setGameLogo(tagId: string, png: Blob | null): Promise<string | null> {
+  const supabase = createClient();
+  const path = `${tagId}.png`;
+  let logoUrl: string | null = null;
+  if (png) {
+    const { error: uploadError } = await supabase.storage
+      .from(LOGO_BUCKET)
+      .upload(path, png, { upsert: true, contentType: 'image/png' });
+    if (uploadError) fail('setGameLogo: upload', 'Could not upload that logo.', uploadError);
+    logoUrl = `${supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl}?t=${Date.now()}`;
+  }
+  const { data, error } = await supabase.from('tags').update({ logo_url: logoUrl }).eq('id', tagId).select('id');
+  if (error) fail('setGameLogo: update', 'Could not save that logo.', error);
+  expectRows('setGameLogo: update', 'Could not save that logo. Refresh and try again.', data?.length ?? 0, 1);
+  // Removing the logo also removes the file; a leftover file is harmless, so a failure here is ignored.
+  if (!png) await supabase.storage.from(LOGO_BUCKET).remove([path]);
+  return logoUrl;
+}
+
+/**
+ * Give every saved card that shows this game the new logo, so a card saved
+ * before the upload picks it up without being rebuilt. A card's legend is what
+ * the board reads at play time. Returns how many cards changed.
+ */
+export async function patchCardLegends(cards: CardTemplate[], gameTagId: string, logoUrl: string | null): Promise<number> {
+  const supabase = createClient();
+  let changed = 0;
+  for (const card of cards) {
+    const styles = (card.styles ?? {}) as CardStyles;
+    const legend = Array.isArray(styles.legend) ? styles.legend : [];
+    if (!legend.some((entry) => entry.gameTagId === gameTagId)) continue;
+    const next = legend.map((entry) => {
+      if (entry.gameTagId !== gameTagId) return entry;
+      // Drop the key entirely on removal, so the card reads exactly as one saved before logos.
+      const rest = { ...entry };
+      delete rest.logoUrl;
+      return logoUrl ? { ...rest, logoUrl } : rest;
+    });
+    const { data, error } = await supabase
+      .from('card_templates')
+      .update({ styles: { ...styles, legend: next } as unknown as Json })
+      .eq('id', card.id)
+      .select('id');
+    if (error) fail('patchCardLegends', `Could not update “${card.name}”.`, error);
+    expectRows('patchCardLegends', `Could not update “${card.name}”. Refresh and try again.`, data?.length ?? 0, 1);
+    changed++;
+  }
+  return changed;
 }
 
 /**

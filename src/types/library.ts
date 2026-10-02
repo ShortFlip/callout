@@ -19,6 +19,8 @@ export interface Tag {
   kind: TagKind;
   color: GameColorKey | null;
   icon: GameIconKey | null;
+  /** Game tags only: public URL of an uploaded 128px logo. Null draws the icon in the colour. */
+  logoUrl: string | null;
 }
 
 /** A row of `library_items` with its extra tags joined in. gameTagId null = No Game. */
@@ -46,4 +48,6 @@ export interface LegendEntry {
   name: string;
   color: GameColorKey;
   icon: GameIconKey;
+  /** Copied from the game when the card was saved; absent on cards saved before logos. */
+  logoUrl?: string;
 }

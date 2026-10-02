@@ -30,9 +30,9 @@ function lane(prefix: string, gameTagId: string | null, n: number): LibraryItem[
 const POOL: LibraryItem[] = [...lane('rl', RL, 20), ...lane('cod', COD, 30), ...lane('ng', null, 3)];
 
 const TAGS: Tag[] = [
-  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'flame' },
-  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair' },
-  { id: 'tag-mech', ownerId: 'me', name: 'Mechanics', kind: 'tag', color: null, icon: null },
+  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'flame', logoUrl: null },
+  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair', logoUrl: null },
+  { id: 'tag-mech', ownerId: 'me', name: 'Mechanics', kind: 'tag', color: null, icon: null, logoUrl: null },
 ];
 
 const mix = (...lanes: Array<[string | null, number]>): CardMix => ({

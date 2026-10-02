@@ -58,7 +58,7 @@ export function NewGameDialog({ open, onOpenChange, onCreated }: TagDialogProps)
 
   // A live preview of the game as it will read in the list.
   const preview: Tag | null = color && icon
-    ? { id: 'preview', ownerId: '', name, kind: 'game', color, icon }
+    ? { id: 'preview', ownerId: '', name, kind: 'game', color, icon, logoUrl: null }
     : null;
 
   return (

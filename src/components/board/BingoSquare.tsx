@@ -1,5 +1,6 @@
 'use client';
 
+import { GameMark } from './GameMark';
 import { cn } from '@/lib/utils';
 import type { BoardGame } from '@/lib/library/legend';
 import type { SquareItem, CardStyles } from '@/types/card';
@@ -37,13 +38,12 @@ interface BingoSquareProps {
  * click on the icon still marks the square.
  */
 function GameMarker({ game }: { game: BoardGame }) {
-  const Icon = game.icon;
   return (
-    <Icon
-      aria-hidden
-      strokeWidth={1.75}
+    <GameMark
+      icon={game.icon}
+      color={game.color}
+      logoUrl={game.logoUrl}
       className="pointer-events-none absolute left-1 top-1 size-4 @max-[88px]:size-3.5 @max-[78px]:size-3"
-      style={{ color: game.color }}
     />
   );
 }
