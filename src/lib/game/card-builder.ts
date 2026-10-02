@@ -45,14 +45,6 @@ export interface CardSet {
   shortBy: number;
 }
 
-/** swapItem's answer. */
-export interface SwapResult {
-  /** The new set, or the input array itself when nothing was swapped. */
-  set: SquareItem[];
-  /** False when the index is out of range or the lane has no unused item left. */
-  swapped: boolean;
-}
-
 /**
  * How many real items a card needs: N², minus one when the FREE square takes
  * the centre. generateCard puts FREE at floor(N²/2) on every size, even ones
@@ -357,45 +349,3 @@ export function buildCardSet({
 }
 
 /** Case-insensitive, trimmed text key: how the library decides two items are the same. */
-function textKey(text: string | undefined): string {
-  return (text ?? '').trim().toLowerCase();
-}
-
-/**
- * Replace the item at `index` with an unused item from the same lane.
- *
- * "Unused" means not already on the set by library id or by text, so a legacy
- * square with no libraryItemId still blocks its twin. Returns the input array
- * unchanged (swapped: false) when the index is out of range or the lane has
- * nothing left, so the UI can say "No more Rocket League items".
- */
-export function swapItem(
-  set: SquareItem[],
-  index: number,
-  pool: LibraryItem[],
-  rng: () => number,
-): SwapResult {
-  const current = set[index];
-  if (!current) return { set, swapped: false };
-
-  const lane = current.gameTagId ?? null;
-  const usedIds = new Set(set.map((square) => square.libraryItemId).filter(Boolean));
-  const usedText = new Set(set.map((square) => textKey(square.text)));
-
-  const seen = new Set<string>();
-  const candidates = [...pool].sort(byId).filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return (
-      (item.gameTagId ?? null) === lane &&
-      !usedIds.has(item.id) &&
-      !usedText.has(textKey(item.text))
-    );
-  });
-  if (candidates.length === 0) return { set, swapped: false };
-
-  const pick = candidates[Math.floor(rng() * candidates.length)];
-  const next = set.slice();
-  next[index] = toSquare(pick);
-  return { set: next, swapped: true };
-}

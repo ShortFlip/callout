@@ -1,19 +1,19 @@
 import { create } from 'zustand';
 import { notify } from '@/lib/library/notify';
-import { countByLane, slotsFor, swapItem, type LaneKey } from '@/lib/game/card-builder';
+import { countByLane, slotsFor, type LaneKey } from '@/lib/game/card-builder';
 import { seededRng } from '@/lib/game/seed-rng';
 import { CARD_PRESETS } from '@/lib/card-styles';
 import * as api from '@/lib/library/api';
 import { computeHeat, type HeatMap } from '@/lib/library/heat';
 import {
   cardStyles,
+  fillEmptySquares,
   itemsForSave,
   laneKeysFor,
   matchCardItems,
   mixForBuild,
   mixFromSet,
-  reconcileCardSet,
-  sameSet,
+  squareFrom,
 } from '@/lib/library/card-draft';
 import type { CardStyles, CardTemplate, SquareItem } from '@/types/card';
 import type { CardMix, GameColorKey, GameIconKey, LibraryItem, MixLane, Tag, TagKind } from '@/types/library';
@@ -22,10 +22,10 @@ import type { CardMix, GameColorKey, GameIconKey, LibraryItem, MixLane, Tag, Tag
  * State for /library: the owner's items and tags, the items pane's filter,
  * search and selection, and the card being built in the card pane.
  *
- * The card maths lives in card-builder.ts and card-draft.ts; this store only
- * decides when to run it. Every card change that can move the lane counts
- * (size, free space, mix, pins, a library edit) goes through rebuild(), which
- * keeps every square it can, so one notch of the slider changes one square.
+ * The card is a list he fills (decision 0004): Add puts one item in the next
+ * empty square, Remove empties one, and Fill Empty is the only random step.
+ * Nothing else reorders or redraws the card: not the size, not the mix, not a
+ * library edit (which only drops a deleted item's square or relabels one).
  *
  * The card draft (not the library) is saved to localStorage under
  * squares:card-draft, so a refresh or a trip to the landing page does not lose
@@ -45,15 +45,15 @@ export interface CardDraft {
   boardSize: number;
   freeSpace: boolean;
   stylePreset: string;
-  /** The requested split. Empty lanes = untouched: an even split across the games. */
+  /** The split Fill Empty draws with, as proportions. Empty lanes = an even split across the games. */
   mix: CardMix;
-  /** The split the last build settled on (pins win, caps apply). What Save stores. */
+  /** The card's real split, squares per game. What Save stores. */
   builtMix: CardMix;
+  /** The squares, in order. Shorter than the slots while the card has empty squares. */
   set: SquareItem[];
-  pinnedIds: string[];
   /**
-   * A loaded card that holds more items than its slots draws from its own
-   * items only (null = the whole library). Pinned items join the pool too.
+   * A loaded card that holds more items than its slots fills from its own
+   * items only (null = the whole library).
    */
   poolIds: string[] | null;
   /** Changed since it was loaded or saved. Host This Card hosts an unchanged saved card by its id (hostCardFor). */
@@ -73,7 +73,6 @@ function blankDraft(ownerId: string | null): CardDraft {
     mix: { lanes: [] },
     builtMix: { lanes: [] },
     set: [],
-    pinnedIds: [],
     poolIds: null,
     dirty: false,
   };
@@ -100,7 +99,7 @@ function writeStoredDraft(draft: CardDraft): void {
   }
 }
 
-/** A fresh seed per action: Reshuffle and Swap should never repeat themselves. */
+/** A fresh seed per Fill, so filling a cleared card again never repeats itself. */
 function freshRng(): () => number {
   return seededRng(crypto.randomUUID());
 }
@@ -174,73 +173,77 @@ interface LibraryState {
   setFreeSpace: (on: boolean) => void;
   setStylePreset: (preset: string) => void;
   setMix: (lanes: MixLane[]) => void;
-  togglePin: (itemId: string) => void;
-  reshuffle: () => void;
-  /** Swap one square; returns the lane that ran dry when nothing was left to swap in. */
-  swap: (index: number) => { swapped: boolean; lane: LaneKey };
+  /** Put an item in the next empty square. False when the card is full or the item is already on it. */
+  addItem: (itemId: string) => boolean;
+  /** Take an item off the card, leaving its square empty. */
+  removeItem: (itemId: string) => void;
   removeSquare: (index: number) => void;
+  /** Fill every empty square at random from the mix. Never touches a square already there. */
+  fillEmpty: () => void;
+  clearCard: () => void;
   useWholeLibrary: () => void;
   saveCard: (targetId: string | null) => Promise<boolean>;
 }
 
-/** The items a card may draw from: the whole library, or a loaded pool card's own items plus pins. */
+/** The items Fill Empty may draw from: the whole library, or a loaded pool card's own items. */
 export function poolFor(items: LibraryItem[], draft: CardDraft): LibraryItem[] {
   if (!draft.poolIds) return items;
-  const allowed = new Set([...draft.poolIds, ...draft.pinnedIds]);
+  const allowed = new Set(draft.poolIds);
   return items.filter((item) => allowed.has(item.id));
 }
 
-/** Slots the mix sliders share out: text-only squares take theirs first. */
-export function mixSlots(draft: CardDraft): number {
-  const extras = draft.set.filter((square) => !square.libraryItemId).length;
-  return Math.max(0, slotsFor(draft.boardSize, draft.freeSpace) - extras);
+/** Squares on the card with nothing in them yet. */
+export function emptySlots(draft: CardDraft): number {
+  return Math.max(0, slotsFor(draft.boardSize, draft.freeSpace) - draft.set.length);
+}
+
+/** Items Fill Empty can still draw, per lane: the pool minus what is already on the card. */
+export function fillableCounts(items: LibraryItem[], draft: CardDraft): Map<LaneKey, number> {
+  const onCard = new Set(draft.set.map((square) => square.libraryItemId));
+  return countByLane(poolFor(items, draft).filter((item) => !onCard.has(item.id)));
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => {
+  /** Replace the card's squares: Save stores the real split, and the draft is now an edit. */
+  function setSquares(next: SquareItem[]): void {
+    set({ draft: { ...get().draft, set: next, builtMix: mixFromSet(next), dirty: true } });
+  }
+
   /**
-   * Re-run the card after anything that can move the lane counts. `current`
-   * defaults to the card as it is (keep what fits); Reshuffle passes the pins
-   * alone. Marks the draft dirty only when the squares really changed.
+   * Bring the card in line with the library without moving a square: a
+   * deleted item's square empties (an edit), and a square follows its item's
+   * game (not an edit). Text-only squares (no libraryItemId) are left alone.
    */
-  function rebuild(patch: Partial<CardDraft> = {}, current?: SquareItem[]): void {
-    const { items, tags } = get();
-    const draft = { ...get().draft, ...patch };
-    const pool = poolFor(items, draft);
-    // Drop pins whose item is gone, so a deleted item cannot haunt the pin list.
-    const inPool = new Set(pool.map((item) => item.id));
-    const pinnedIds = draft.pinnedIds.filter((id) => inPool.has(id));
-
-    const result = reconcileCardSet({
-      current: current ?? draft.set,
-      pool,
-      slots: slotsFor(draft.boardSize, draft.freeSpace),
-      mix: mixForBuild(draft.mix, laneKeysFor(pool, tags)),
-      pinnedIds,
-      rng: freshRng(),
-    });
-
-    const changed = !sameSet(draft.set, result.set) || Object.keys(patch).length > 0;
-    set({
-      draft: {
-        ...draft,
-        pinnedIds,
-        set: result.set,
-        builtMix: result.mix,
-        dirty: draft.dirty || changed,
-      },
-      capped: result.capped,
-    });
+  function syncSquares(): void {
+    const { items, draft } = get();
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const next: SquareItem[] = [];
+    for (const square of draft.set) {
+      const item = square.libraryItemId ? byId.get(square.libraryItemId) : undefined;
+      if (!square.libraryItemId) next.push(square);
+      // Keep the square's own text (a loaded card's spelling); take the item's current game.
+      else if (item) next.push({ ...squareFrom(item), text: square.text });
+    }
+    const relabelled = next.some((square, i) => square.gameTagId !== draft.set[i]?.gameTagId);
+    const dropped = next.length !== draft.set.length;
+    if (!dropped && !relabelled) return;
+    set({ draft: { ...draft, set: next, builtMix: mixFromSet(next), dirty: draft.dirty || dropped } });
   }
 
   /** Apply a library change locally, then let the card catch up. */
   function afterLibraryChange(items: LibraryItem[]): void {
-    const before = get().draft;
     set({ items });
-    rebuild();
-    // A library edit refreshes the draft but is not an edit to the card itself.
-    if (!before.dirty && sameSet(before.set, get().draft.set)) {
-      set({ draft: { ...get().draft, dirty: false } });
-    }
+    syncSquares();
+  }
+
+  /** Cut squares from the bottom when the card gets smaller, and say how many went. */
+  function resize(patch: Pick<Partial<CardDraft>, 'boardSize' | 'freeSpace'>): void {
+    const draft = { ...get().draft, ...patch };
+    const slots = slotsFor(draft.boardSize, draft.freeSpace);
+    const cut = Math.max(0, draft.set.length - slots);
+    const next = cut > 0 ? draft.set.slice(0, slots) : draft.set;
+    set({ draft: { ...draft, set: next, builtMix: mixFromSet(next), dirty: true } });
+    if (cut > 0) notify.info(`Removed the last ${cut} ${cut === 1 ? 'square' : 'squares'} to fit`);
   }
 
   return {
@@ -425,24 +428,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
       const { ownerId } = get();
       if (!ownerId) return;
       const stored = readStoredDraft(ownerId);
-      if (stored) {
-        const wasDirty = stored.dirty;
-        set({ draft: stored });
-        rebuild();
-        // Restoring is not editing: only a real change from the library marks it.
-        if (!wasDirty && sameSet(stored.set, get().draft.set)) set({ draft: { ...get().draft, dirty: false } });
-      } else {
-        set({ draft: blankDraft(ownerId) });
-        rebuild();
-        set({ draft: { ...get().draft, dirty: false } });
-      }
+      // Restoring is not editing: only an item deleted since then marks it.
+      set({ draft: stored ?? blankDraft(ownerId), capped: [] });
+      syncSquares();
     },
 
-    newCard() {
-      set({ draft: blankDraft(get().ownerId) });
-      rebuild();
-      set({ draft: { ...get().draft, dirty: false } });
-    },
+    // A new card starts empty: he fills it by hand, with Fill Empty, or both.
+    newCard: () => set({ draft: blankDraft(get().ownerId), capped: [] }),
 
     loadCard(card) {
       const styles = (card.styles ?? {}) as CardStyles;
@@ -461,64 +453,75 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
 
       if (squares.length > slots) {
         // A pool card (a legacy card with more items than squares): draw the
-        // slots from its own items, pinning nothing. Text-only items cannot be
-        // drawn, so they sit this round out; Reshuffle draws again.
+        // slots from its own items once. Text-only items cannot be drawn, so
+        // they sit this round out. Fill Empty keeps drawing from this pool
+        // until Use Whole Library.
         const poolIds = squares.map((s) => s.libraryItemId).filter((id): id is string => !!id);
         // Weight each lane by its share of the card's items: an even draw
         // across the pool, the way the room used to deal it. (The page's
         // default would leave No Game at 0%, and a legacy card is mostly No Game.)
-        set({ draft: { ...base, poolIds, set: [], mix: mixFromSet(squares) } });
-        rebuild({}, []);
+        const mix = mixFromSet(squares);
+        const allowed = new Set(poolIds);
+        const pool = get().items.filter((item) => allowed.has(item.id));
+        const result = fillEmptySquares({ current: [], pool, slots, mix, rng: freshRng() });
+        set({ draft: { ...base, poolIds, set: result.set, mix, builtMix: mixFromSet(result.set) }, capped: result.capped });
       } else {
-        // Load exactly: the requested mix is the card's own split, so the
-        // rebuild keeps every square (and only fills a short legacy card).
+        // Load exactly, gaps and all: a short legacy card shows its empty squares.
         const own = mixFromSet(squares);
-        set({ draft: { ...base, set: squares, mix: own, builtMix: own } });
-        rebuild();
+        set({ draft: { ...base, set: squares, mix: own, builtMix: own }, capped: [] });
       }
-      set({ draft: { ...get().draft, dirty: false } });
     },
 
     setName: (name) => set((s) => ({ draft: { ...s.draft, name, dirty: true } })),
-    setBoardSize: (boardSize) => rebuild({ boardSize }),
-    setFreeSpace: (freeSpace) => rebuild({ freeSpace }),
+    setBoardSize: (boardSize) => resize({ boardSize }),
+    setFreeSpace: (freeSpace) => resize({ freeSpace }),
     setStylePreset: (stylePreset) => set((s) => ({ draft: { ...s.draft, stylePreset, dirty: true } })),
-    setMix: (lanes) => rebuild({ mix: { lanes } }),
+    // The mix only steers the next Fill Empty. It changes no square, so it is not an edit.
+    setMix: (lanes) => set((s) => ({ draft: { ...s.draft, mix: { lanes } } })),
 
-    togglePin(itemId) {
-      const { draft } = get();
-      const pinnedIds = draft.pinnedIds.includes(itemId)
-        ? draft.pinnedIds.filter((id) => id !== itemId)
-        : [...draft.pinnedIds, itemId];
-      rebuild({ pinnedIds });
-    },
-
-    reshuffle() {
-      const { draft } = get();
-      // Keep only what Reshuffle must not touch: pins and text-only squares.
-      const keep = draft.set.filter(
-        (square) => !square.libraryItemId || draft.pinnedIds.includes(square.libraryItemId),
-      );
-      rebuild({}, keep);
-      set({ draft: { ...get().draft, dirty: true } });
-    },
-
-    swap(index) {
+    addItem(itemId) {
       const { draft, items } = get();
-      const lane = draft.set[index]?.gameTagId ?? null;
-      const result = swapItem(draft.set, index, poolFor(items, draft), freshRng());
-      if (result.swapped) set({ draft: { ...draft, set: result.set, dirty: true } });
-      return { swapped: result.swapped, lane };
+      const item = items.find((i) => i.id === itemId);
+      if (!item || draft.set.some((square) => square.libraryItemId === itemId)) return false;
+      if (emptySlots(draft) === 0) {
+        notify.info('The card is full. Remove a square first.');
+        return false;
+      }
+      setSquares([...draft.set, squareFrom(item)]);
+      return true;
+    },
+
+    removeItem(itemId) {
+      setSquares(get().draft.set.filter((square) => square.libraryItemId !== itemId));
     },
 
     removeSquare(index) {
-      const { draft } = get();
-      const next = draft.set.filter((_, i) => i !== index);
-      rebuild({}, next);
-      set({ draft: { ...get().draft, dirty: true } });
+      setSquares(get().draft.set.filter((_, i) => i !== index));
     },
 
-    useWholeLibrary: () => rebuild({ poolIds: null }),
+    fillEmpty() {
+      const { draft, items, tags } = get();
+      const pool = poolFor(items, draft);
+      const result = fillEmptySquares({
+        current: draft.set,
+        pool,
+        slots: slotsFor(draft.boardSize, draft.freeSpace),
+        mix: mixForBuild(draft.mix, laneKeysFor(pool, tags)),
+        rng: freshRng(),
+      });
+      set({ capped: result.capped });
+      if (result.added > 0) setSquares(result.set);
+      if (result.shortBy > 0) {
+        notify.info(`Ran out of items: ${result.shortBy} ${result.shortBy === 1 ? 'square is' : 'squares are'} still empty`);
+      }
+    },
+
+    clearCard() {
+      setSquares([]);
+      set({ capped: [] });
+    },
+
+    useWholeLibrary: () => set((s) => ({ draft: { ...s.draft, poolIds: null } })),
 
     async saveCard(targetId) {
       const { draft, tags, ownerId } = get();

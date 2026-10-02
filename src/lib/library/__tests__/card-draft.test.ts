@@ -9,11 +9,10 @@ import {
   mixFromSet,
   planImport,
   rebalanceLanes,
-  reconcileCardSet,
-  sameSet,
+  fillEmptySquares,
   textKey,
 } from '../card-draft';
-import { buildCardSet, countByLane, splitFromPercent, type LaneKey } from '@/lib/game/card-builder';
+import { buildCardSet, countByLane, type LaneKey } from '@/lib/game/card-builder';
 import { seededRng } from '@/lib/game/seed-rng';
 import type { SquareItem } from '@/types/card';
 import type { CardMix, LibraryItem, Tag } from '@/types/library';
@@ -43,11 +42,9 @@ const ids = (set: SquareItem[]) => set.map((s) => s.libraryItemId);
 const inLane = (set: SquareItem[], key: LaneKey) => set.filter((s) => (s.gameTagId ?? null) === key);
 const rng = (seed = 'seed') => seededRng(seed);
 
-/** A 24-slot card at a 7/17 split, built the way the page builds its first card. */
+/** A full 24-slot card at a 7/17 split, the way Fill Empty fills an empty card. */
 function card717(): SquareItem[] {
-  return reconcileCardSet({
-    current: [], pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: [], rng: rng(),
-  }).set;
+  return fillEmptySquares({ current: [], pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), rng: rng() }).set;
 }
 
 describe('textKey / planImport', () => {
@@ -111,98 +108,56 @@ describe('rebalanceLanes', () => {
   });
 });
 
-describe('reconcileCardSet', () => {
-  it('builds a full card at the requested split', () => {
-    const set = card717();
+describe('fillEmptySquares', () => {
+  const four: SquareItem[] = [
+    { text: 'rl-01', libraryItemId: 'rl-01', gameTagId: RL },
+    { text: 'cod-01', libraryItemId: 'cod-01', gameTagId: COD },
+    { text: 'cod-02', libraryItemId: 'cod-02', gameTagId: COD },
+    { text: 'Old Square' },
+  ];
+
+  it('fills only the empty squares and never touches what is there', () => {
+    const { set, added } = fillEmptySquares({ current: four, pool: POOL, slots: 24, mix: mix([RL, 1], [COD, 1]), rng: rng() });
     expect(set).toHaveLength(24);
-    expect(inLane(set, RL)).toHaveLength(7);
-    expect(inLane(set, COD)).toHaveLength(17);
-    expect(new Set(ids(set)).size).toBe(24);
+    expect(added).toBe(20);
+    expect(set.slice(0, 4)).toEqual(four);
   });
 
-  it('moving the split one notch changes exactly one square', () => {
-    const before = card717();
-    const [a, b] = splitFromPercent(((8 / 24) * 100), 24);
-    const after = reconcileCardSet({
-      current: before, pool: POOL, slots: 24, mix: mix([RL, a], [COD, b]), pinnedIds: [], rng: rng('other'),
-    }).set;
-    expect(inLane(after, RL)).toHaveLength(8);
-    const beforeIds = new Set(ids(before));
-    expect(ids(after).filter((id) => !beforeIds.has(id))).toHaveLength(1);
-    // The new square takes the dropped square's place: every other position is untouched.
-    const moved = after.filter((s, i) => s.libraryItemId !== before[i].libraryItemId);
-    expect(moved).toHaveLength(1);
+  it('never draws an item already on the card', () => {
+    const { set } = fillEmptySquares({ current: four, pool: POOL, slots: 24, mix: mix([RL, 1], [COD, 1]), rng: rng() });
+    const drawn = ids(set).filter(Boolean);
+    expect(new Set(drawn).size).toBe(drawn.length);
   });
 
-  it('keeps pins first and never drops them on a reshuffle', () => {
-    const pins = ['rl-03', 'cod-10'];
-    const first = reconcileCardSet({
-      current: card717(), pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: pins, rng: rng(),
-    }).set;
-    expect(ids(first).slice(0, 2)).toEqual(pins);
-
-    // Reshuffle = reconcile from the pins alone with a fresh seed.
-    const reshuffled = reconcileCardSet({
-      current: first.slice(0, 2), pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: pins, rng: rng('again'),
-    }).set;
-    expect(ids(reshuffled).slice(0, 2)).toEqual(pins);
-    expect(reshuffled).toHaveLength(24);
-    expect(ids(reshuffled).slice(2)).not.toEqual(ids(first).slice(2));
+  it('never draws the twin of a text-only square', () => {
+    const pool = [...POOL, { id: 'ng-old', text: 'old square', gameTagId: null, tagIds: [] }];
+    const { set } = fillEmptySquares({ current: four, pool, slots: 24, mix: mix([null, 1]), rng: rng() });
+    expect(ids(set)).not.toContain('ng-old');
   });
 
-  it('pins win over the split and drop only what they must', () => {
-    const before = card717();
-    const pins = lane('rl', RL, 9).map((i) => i.id); // 9 RL pins with the slider at 7
-    const result = reconcileCardSet({
-      current: before, pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: pins, rng: rng(),
-    });
-    expect(inLane(result.set, RL)).toHaveLength(9);
-    expect(result.mix.lanes.find((l) => l.gameTagId === RL)?.count).toBe(9);
-    expect(result.set).toHaveLength(24);
+  it('reads the mix as proportions over the empty squares', () => {
+    const { set } = fillEmptySquares({ current: [], pool: POOL, slots: 6, mix: mix([RL, 2], [COD, 1]), rng: rng() });
+    expect(inLane(set, RL)).toHaveLength(4);
+    expect(inLane(set, COD)).toHaveLength(2);
   });
 
-  it('refills a square whose item left the library, and re-lanes a changed game', () => {
-    const before = card717();
-    const goneId = inLane(before, COD)[0].libraryItemId!;
-    const pool = POOL.filter((i) => i.id !== goneId);
-    const after = reconcileCardSet({
-      current: before, pool, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: [], rng: rng(),
-    }).set;
-    expect(ids(after)).not.toContain(goneId);
-    expect(after).toHaveLength(24);
-    expect(inLane(after, COD)).toHaveLength(17);
+  it('does nothing on a full card', () => {
+    const full = card717();
+    const result = fillEmptySquares({ current: full, pool: POOL, slots: 24, mix: mix([RL, 1]), rng: rng() });
+    expect(result.set).toBe(full);
+    expect(result.added).toBe(0);
   });
 
-  it('keeps a text-only square and never draws its twin', () => {
-    const legacy: SquareItem = { text: 'RL ITEM 01' }; // same text as rl-01, different case
-    const result = reconcileCardSet({
-      current: [legacy], pool: POOL, slots: 24, mix: mix([RL, 1], [COD, 0]), pinnedIds: [], rng: rng(),
-    });
-    expect(result.set[0]).toBe(legacy);
-    expect(result.set).toHaveLength(24);
-    expect(ids(result.set)).not.toContain('rl-01');
-  });
-
-  it('reports the shortfall when the library is too small', () => {
-    const result = reconcileCardSet({
-      current: [], pool: lane('rl', RL, 19), slots: 24, mix: mix([RL, 1]), pinnedIds: [], rng: rng(),
-    });
-    expect(result.set).toHaveLength(19);
-    expect(result.shortBy).toBe(5);
+  it('reports the shortfall when the library runs out', () => {
+    const { set, shortBy } = fillEmptySquares({ current: [], pool: lane('rl', RL, 5), slots: 8, mix: mix([RL, 1]), rng: rng() });
+    expect(set).toHaveLength(5);
+    expect(shortBy).toBe(3);
   });
 
   it('is deterministic for a seed', () => {
-    const a = reconcileCardSet({ current: [], pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: [], rng: rng('x') });
-    const b = reconcileCardSet({ current: [], pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: [], rng: rng('x') });
+    const a = fillEmptySquares({ current: four, pool: POOL, slots: 24, mix: mix([RL, 1], [COD, 1]), rng: rng('x') });
+    const b = fillEmptySquares({ current: four, pool: POOL, slots: 24, mix: mix([RL, 1], [COD, 1]), rng: rng('x') });
     expect(ids(a.set)).toEqual(ids(b.set));
-  });
-
-  it('a rebuild with nothing changed changes nothing', () => {
-    const before = card717();
-    const after = reconcileCardSet({
-      current: before, pool: POOL, slots: 24, mix: mix([RL, 7], [COD, 17]), pinnedIds: [], rng: rng('different'),
-    }).set;
-    expect(sameSet(before, after)).toBe(true);
   });
 });
 

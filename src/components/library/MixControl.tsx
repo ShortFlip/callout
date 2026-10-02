@@ -29,9 +29,10 @@ function laneColor(game: Tag | undefined): string {
 }
 
 /**
- * The mix: how many squares each game gets. Always shows the real split (pins
- * win, caps apply), so the slider jumps to 8 when 8 Rocket League items are
- * pinned with it at 5, and stops at what a game has.
+ * The mix, inside the Fill Empty menu: how the empty squares split across
+ * games. `slots` is the empty squares and `counts` is what Fill would draw
+ * per game, so the sliders preview exactly what the next Fill adds, capped at
+ * the items each game has left.
  *
  * Two lanes: ONE split slider, left game ◀─●─▶ right game, stepping one square
  * at a time via splitFromPercent. Three or more: one slider per lane, and
@@ -56,7 +57,7 @@ export function MixControl({ lanes, games, counts, available, capped, slots, onC
 
   return (
     <div className="space-y-2" data-testid="mix">
-      <p className="text-[13px] font-medium text-muted-foreground">Mix</p>
+      <p className="text-[13px] font-medium text-muted-foreground">Fill Empty Squares From</p>
 
       {lanes.length === 0 && (
         <p className="text-[13px] text-muted-foreground">Import items to fill the card.</p>
@@ -139,7 +140,7 @@ export function MixControl({ lanes, games, counts, available, capped, slots, onC
       {lanes.length > 0 && (
         <p className="text-[13px] text-muted-foreground" data-testid="mix-words">
           {words.length === 0
-            ? 'Nothing On The Card Yet'
+            ? 'No Empty Squares To Fill'
             : words.map(({ lane, n }, i) => (
                 <span key={lane ?? 'none'}>
                   {i > 0 && ' · '}
