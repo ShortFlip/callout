@@ -5,6 +5,9 @@ import { BingoSquare } from './BingoSquare';
 import { squareGame } from '@/lib/library/legend';
 import type { SquareItem, CardStyles } from '@/types/card';
 
+/** Frame padding that matches each grid gap (literal classes, so Tailwind keeps them). */
+const FRAME_PADDING: Record<string, string> = { 'gap-1': 'p-1', 'gap-1.5': 'p-1.5', 'gap-2': 'p-2', 'gap-3': 'p-3' };
+
 // Pre-declare all grid sizes so Tailwind includes them in the build
 const GRID_COLS: Record<number, string> = {
   3: 'grid-cols-3',
@@ -54,6 +57,12 @@ export function BingoBoard({
       className={cn(
         '@container grid w-full',
         gapClass,
+        // A style with its own card colour frames the squares on all four sides
+        // with the same width as the gaps. Without it the colour only showed
+        // between squares and the outer row read as cut off ("kind of
+        // truncated"). Styles without a card colour stay edge to edge.
+        styles?.cardBg && (FRAME_PADDING[gapClass] ?? 'p-1'),
+        styles?.cardBg && 'rounded-xl',
         GRID_COLS[boardSize] ?? 'grid-cols-5',
         className,
       )}

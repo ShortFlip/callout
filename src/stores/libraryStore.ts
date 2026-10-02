@@ -163,7 +163,7 @@ interface LibraryState {
   deleteItems: (ids: string[]) => Promise<boolean>;
   createTag: (input: { name: string; kind: TagKind; color?: GameColorKey | null; icon?: GameIconKey | null }) => Promise<Tag | null>;
   /** Upload (png) or remove (null) a game's logo, and carry it into every saved card that shows the game. */
-  setGameLogo: (tagId: string, png: Blob | null) => Promise<boolean>;
+  setGameLogo: (tagId: string, logo: { png: Blob; fullColour: boolean } | null) => Promise<boolean>;
 
   // ── Card ──
   /** The draft saved in this browser, or a fresh 5×5 from an even mix of the owner's games. */
@@ -426,9 +426,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
       }
     },
 
-    async setGameLogo(tagId, png) {
+    async setGameLogo(tagId, logo) {
       try {
-        const logoUrl = await api.setGameLogo(tagId, png);
+        const logoUrl = await api.setGameLogo(tagId, logo);
         set({ tags: get().tags.map((tag) => (tag.id === tagId ? { ...tag, logoUrl } : tag)) });
         // Saved cards froze their legend when saved; patch them so "upload once"
         // reaches the board on the next night without re-saving every card.
@@ -436,7 +436,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
         await get().refreshSavedCards();
         return true;
       } catch (error) {
-        toastError(error, png ? 'Could not upload that logo.' : 'Could not remove that logo.');
+        toastError(error, logo ? 'Could not upload that logo.' : 'Could not remove that logo.');
         return false;
       }
     },

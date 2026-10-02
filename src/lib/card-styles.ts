@@ -10,6 +10,10 @@ export interface CardStylePreset {
  * Built-in card style presets.
  * The 'default' preset uses empty overrides — BingoSquare falls back to
  * CSS vars so it inherits whatever theme the player has active.
+ *
+ * Four on purpose (2026-10-02): he cut Ocean, Sunset, Forest and Retro.
+ * Cards saved in them still draw in-game (card_templates.styles holds the
+ * full colours); opening one in the library falls back to Default.
  */
 export const CARD_PRESETS: CardStylePreset[] = [
   {
@@ -41,58 +45,6 @@ export const CARD_PRESETS: CardStylePreset[] = [
       squareBgFree: '#10b981',
       gridLine: '#1e1e3a',
       textColor: '#e0e0ff',
-    },
-  },
-  {
-    id: 'ocean',
-    label: 'Ocean',
-    styles: {
-      preset: 'ocean',
-      cardBg: '#082035',
-      squareBg: '#0f2a4a',
-      squareBgMarked: '#0ea5e9',
-      squareBgFree: '#06b6d4',
-      gridLine: '#163d60',
-      textColor: '#e0f2fe',
-    },
-  },
-  {
-    id: 'sunset',
-    label: 'Sunset',
-    styles: {
-      preset: 'sunset',
-      cardBg: '#150800',
-      squareBg: '#231200',
-      squareBgMarked: '#f59e0b',
-      squareBgFree: '#ef4444',
-      gridLine: '#3d2000',
-      textColor: '#fef3c7',
-    },
-  },
-  {
-    id: 'forest',
-    label: 'Forest',
-    styles: {
-      preset: 'forest',
-      cardBg: '#041a06',
-      squareBg: '#082b0c',
-      squareBgMarked: '#22c55e',
-      squareBgFree: '#16a34a',
-      gridLine: '#103d16',
-      textColor: '#dcfce7',
-    },
-  },
-  {
-    id: 'retro',
-    label: 'Retro',
-    styles: {
-      preset: 'retro',
-      cardBg: '#e8d5b0',
-      squareBg: '#f5e6c8',
-      squareBgMarked: '#b91c1c',
-      squareBgFree: '#92400e',
-      gridLine: '#c4a97a',
-      textColor: '#3d1c00',
     },
   },
   {

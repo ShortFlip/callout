@@ -364,6 +364,15 @@ One line each, dated, so they are not relitigated.
   they "don't detract from the square itself". Rejected: full-colour box-art
   icons (mush at 16px) and the coloured shield/badge emblems. White marks
   vanish on Latte; nobody plays on Latte, so it is accepted.
+  Amended the same day: on Classic's white squares the white marks vanished
+  entirely, so a one-colour logo is now drawn as a silhouette in the game's
+  colour (MW orange, RL blue). Only a logo uploaded as full colour keeps its
+  own pixels.
+- **Card frame and styles (2026-10-02).** A style with its own card colour
+  frames the squares on all four sides at the gap width, with rounded
+  corners; before, the colour showed only between squares and the outer row
+  "looked truncated". Styles cut to four: Default, Classic, Neon, Slate
+  (Ocean, Sunset, Forest and Retro removed).
 
 ---
 

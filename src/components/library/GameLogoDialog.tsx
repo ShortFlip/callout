@@ -27,8 +27,8 @@ export function GameLogoDialog({ game, open, onOpenChange }: { game: Tag; open: 
     if (!file) return;
     setBusy('upload');
     try {
-      const png = await toLogoPng(file);
-      if (await setGameLogo(game.id, png)) notify.success(`${game.name} logo saved`);
+      const logo = await toLogoPng(file);
+      if (await setGameLogo(game.id, logo)) notify.success(`${game.name} logo saved`);
     } catch {
       notify.error('Could not read that image. Try a PNG or JPG.');
     } finally {

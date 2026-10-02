@@ -4,6 +4,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 import type { OtherPlayer, GameWinner } from '@/stores/gameStore';
 import type { CardStyles, SquareItem } from '@/types/card';
 import type { LegendEntry } from '@/types/library';
+import { CARD_PRESETS } from '@/lib/card-styles';
 
 /**
  * Overrides the game screen renders instead of the store, so the states that
@@ -172,7 +173,16 @@ function tintedOverrides(size: 5 | 6, params: URLSearchParams): DevOverrides {
     freeSpace: layout.free !== undefined,
     card,
     marks: layout.marks,
-    styles: { legend: TINT_LEGEND },
+    // &preset=<id> draws the card in one of the card styles; &logo_rl= and
+    // &logo_cod= put uploaded logo URLs in the legend, so every style can be
+    // captured with real logos on it.
+    styles: {
+      ...(CARD_PRESETS.find((p) => p.id === params.get('preset'))?.styles ?? {}),
+      legend: TINT_LEGEND.map((entry) => {
+        const logo = params.get(entry.gameTagId === rl.gameTagId ? 'logo_rl' : 'logo_cod');
+        return logo ? { ...entry, logoUrl: logo } : entry;
+      }),
+    },
     called: params.get('called') === '1' ? layout.called : undefined,
     others: size === 6 ? denseRail(size) : won ? wonRail() : fakeFive().slice(0, 4),
     // An empty list, not undefined, without &won=1: the harness may run in a room
