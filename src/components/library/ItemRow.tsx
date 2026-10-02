@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -23,12 +23,13 @@ interface ItemRowProps {
   extraTags: Tag[];
   selected: boolean;
   onCard: boolean;
-  /** Every slot on the card is pinned, so "+" has nowhere to go. */
+  /** Every square on the card is taken, so Add has nowhere to go. */
   cardFull: boolean;
   onToggleSelected: (id: string) => void;
   onRename: (id: string, text: string) => Promise<boolean>;
   onSetGame: (id: string, gameTagId: string | null) => void;
-  onPin: (id: string) => void;
+  /** Add the item to the card, or take it off when `on` (it is already there). */
+  onToggleCard: (id: string, on: boolean) => void;
   /**
    * Non-zero while this row is lit after an Add an Item save (or as the
    * duplicate it found). A new number restarts the fade.
@@ -53,7 +54,7 @@ export const ItemRow = memo(function ItemRow({
   onToggleSelected,
   onRename,
   onSetGame,
-  onPin,
+  onToggleCard,
   flash = 0,
 }: ItemRowProps) {
   const [editing, setEditing] = useState(false);
@@ -136,7 +137,11 @@ export const ItemRow = memo(function ItemRow({
             type="button"
             onClick={startEdit}
             title="Click To Edit"
-            className="block h-8 w-full truncate rounded-md px-2 -mx-2 text-left text-sm outline-none transition-colors duration-150 hover:bg-muted/60 active:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+            // On-card rows read a step quieter, so the ones still to pick stand out.
+            className={cn(
+              'block h-8 w-full truncate rounded-md px-2 -mx-2 text-left text-sm outline-none transition-colors duration-150 hover:bg-muted/60 active:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
+              onCard && 'text-muted-foreground',
+            )}
           >
             {item.text}
           </button>
@@ -168,21 +173,41 @@ export const ItemRow = memo(function ItemRow({
 
       <RowGameMenu games={games} value={item.gameTagId} onChange={(id) => onSetGame(item.id, id)} />
 
-      {/* On-card rows are marked by the accent bar, so "+" only appears where it can act.
-          The empty slot keeps every row's game menu in the same column. */}
+      {/* One toggle, three faces: Add (raised), Added (quiet, so a full column of
+          them doesn't shout over the card), and Remove on hover of an added row's
+          button. Fixed width so the game menu column never shifts. */}
       {onCard ? (
-        <span className="size-7 shrink-0" aria-hidden />
-      ) : (
         <Button
           variant="ghost"
-          size="icon-sm"
-          className={BTN}
-          disabled={cardFull}
-          onClick={() => onPin(item.id)}
-          aria-label="Add To Card"
-          title={cardFull ? 'Every Square Is Pinned' : 'Add To Card'}
+          className={cn(BTN, 'group/card w-28 shrink-0 text-muted-foreground hover:bg-destructive/20 hover:text-destructive')}
+          onClick={() => onToggleCard(item.id, true)}
+          aria-label={`Remove ${item.text} From Card`}
+          data-testid="card-toggle"
+          data-on-card
         >
-          <Plus strokeWidth={1.75} />
+          <Check strokeWidth={2} className="text-success group-hover/card:hidden" />
+          <X strokeWidth={2} className="hidden group-hover/card:block" />
+          <span className="group-hover/card:hidden">Added</span>
+          <span className="hidden group-hover/card:inline">Remove</span>
+        </Button>
+      ) : (
+        <Button
+          variant="secondary"
+          className={cn(BTN, 'w-28 shrink-0')}
+          disabled={cardFull}
+          onClick={() => onToggleCard(item.id, false)}
+          aria-label={`Add ${item.text} To Card`}
+          title={cardFull ? 'The Card Is Full' : undefined}
+          data-testid="card-toggle"
+        >
+          {cardFull ? (
+            'Card Full'
+          ) : (
+            <>
+              <Plus strokeWidth={2} />
+              Add
+            </>
+          )}
         </Button>
       )}
     </li>

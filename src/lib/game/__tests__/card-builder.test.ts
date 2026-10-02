@@ -4,7 +4,6 @@ import {
   buildCardSet,
   slotsFor,
   splitFromPercent,
-  swapItem,
   type LaneKey,
 } from '../card-builder';
 import { seededRng } from '../seed-rng';
@@ -271,61 +270,5 @@ describe('buildCardSet', () => {
         { gameTagId: null, count: 4 },
       ]);
     }
-  });
-});
-
-describe('swapItem', () => {
-  const start = () =>
-    buildCardSet({ pool: POOL, slots: 24, mix: mix([RL, 12], [COD, 12]), pinnedIds: [], rng: seededRng('night-1') }).set;
-
-  it('replaces one item with an unused item from the same lane and leaves the rest alone', () => {
-    const set = start();
-    const index = set.findIndex((s) => s.gameTagId === RL);
-    const { set: next, swapped } = swapItem(set, index, POOL, seededRng('swap-1'));
-
-    expect(swapped).toBe(true);
-    expect(next).not.toBe(set);
-    expect(next[index].gameTagId).toBe(RL);
-    expect(ids(set)).not.toContain(next[index].libraryItemId);
-    next.forEach((square, i) => {
-      if (i !== index) expect(square).toBe(set[i]);
-    });
-  });
-
-  it('never creates a duplicate, however many swaps', () => {
-    let set = start();
-    const rng = seededRng('many-swaps');
-    for (let n = 0; n < 200; n++) {
-      set = swapItem(set, Math.floor(rng() * set.length), POOL, rng).set;
-      expect(set).toHaveLength(24);
-      expect(new Set(ids(set)).size).toBe(24);
-    }
-  });
-
-  it('is a no-op when the lane has nothing left', () => {
-    const pool = [...lane('rl', RL, 3), ...lane('cod', COD, 30)];
-    const set = buildCardSet({ pool, slots: 24, mix: mix([RL, 12], [COD, 12]), pinnedIds: [], rng: seededRng('x') }).set;
-    const index = set.findIndex((s) => s.gameTagId === RL);
-    const result = swapItem(set, index, pool, seededRng('swap'));
-    expect(result.swapped).toBe(false);
-    expect(result.set).toBe(set);
-  });
-
-  it('is a no-op for an index outside the set', () => {
-    const set = start();
-    expect(swapItem(set, 99, POOL, seededRng('swap')).swapped).toBe(false);
-  });
-
-  it('treats a legacy square with no library id as used by its text', () => {
-    // A loaded legacy card: no libraryItemId, no game. Its twin in the library
-    // (different case) must not be offered as the replacement.
-    const legacy: SquareItem[] = [{ text: 'Snack Break' }];
-    const pool: LibraryItem[] = [
-      { id: 'ng-a', text: 'snack break', gameTagId: null, tagIds: [] },
-      { id: 'ng-b', text: 'Rage Quit', gameTagId: null, tagIds: [] },
-    ];
-    const { set, swapped } = swapItem(legacy, 0, pool, seededRng('swap'));
-    expect(swapped).toBe(true);
-    expect(set[0]).toEqual({ text: 'Rage Quit', libraryItemId: 'ng-b' });
   });
 });

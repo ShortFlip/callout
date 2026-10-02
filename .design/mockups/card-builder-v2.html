@@ -1,0 +1,225 @@
+<!doctype html>
+<html class="dark">
+<head>
+<meta charset="utf-8">
+<title>Card Builder v2 — mockup</title>
+<style>
+  /* Mockup only: the app's real dark tokens and vendored fonts, so the
+     capture reads like the live /library page, not a generic wireframe. */
+  @font-face { font-family: Outfit; src: url(../../src/app/fonts/outfit-latin-wght-normal.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: Jakarta; src: url(../../src/app/fonts/plus-jakarta-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 200 800; }
+  :root {
+    --background: oklch(0.18 0.016 275);
+    --foreground: oklch(0.97 0.005 247);
+    --card: oklch(0.24 0.018 275);
+    --primary: oklch(0.62 0.26 278);
+    --secondary: oklch(0.30 0.014 275);
+    --muted: oklch(0.28 0.014 275);
+    --muted-fg: oklch(0.72 0.025 240);
+    --accent: oklch(0.77 0.175 70);
+    --border: oklch(0.34 0.016 271);
+    --success: oklch(0.70 0.175 162);
+    --mw: oklch(0.66 0.19 38);
+    --rl: oklch(0.64 0.15 240);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: Jakarta, sans-serif; color: var(--foreground); background: var(--background);
+    background-image: radial-gradient(120% 70% at 50% -20%, color-mix(in oklab, var(--primary) 14%, transparent) 0%, transparent 60%);
+    height: 100vh; overflow: hidden;
+  }
+  main { height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 20px 24px 24px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; }
+  .home { font-size: 14px; color: var(--muted-fg); display: inline-flex; gap: 4px; align-items: center; margin-bottom: 12px; }
+  h1 { font-family: Outfit; font-weight: 900; font-size: 30px; }
+  .sub { font-size: 14px; color: var(--muted-fg); margin-top: 4px; }
+  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 440px; gap: 20px; }
+  .pane { background: var(--card); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  /* Buttons: raised fill, never an outline (ruled 2026-09-26). */
+  .btn { height: 32px; padding: 0 12px; border-radius: 8px; border: 0; font: 500 14px Jakarta; color: var(--foreground); background: var(--secondary); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn.primary { background: var(--primary); color: white; }
+  .btn.lg { height: 40px; padding: 0 16px; }
+  .btn.ghost { background: transparent; color: var(--muted-fg); }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* Left pane */
+  .toolbar { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border); }
+  .chips { display: flex; gap: 6px; }
+  .chip { height: 30px; padding: 0 12px; border-radius: 999px; background: var(--secondary); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted-fg); }
+  .chip.on { background: color-mix(in oklab, var(--primary) 28%, var(--card)); color: var(--foreground); }
+  .search { height: 36px; border-radius: 8px; background: var(--secondary); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted-fg); font-size: 14px; }
+  ul { list-style: none; padding: 0; overflow: hidden; }
+  .item { position: relative; height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent); font-size: 14px; }
+  .item.oncard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .item .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item.oncard .text { color: var(--muted-fg); }
+  .box { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); }
+  .glyph { width: 16px; height: 16px; }
+  .glyph.mw { color: var(--mw); } .glyph.rl { color: var(--rl); }
+  .heat { display: flex; gap: 2px; align-items: flex-end; height: 14px; }
+  .heat i { width: 4px; border-radius: 1px; background: var(--muted); }
+  .heat i.h { background: var(--accent); }
+  .game { font-size: 13px; color: var(--muted-fg); width: 150px; display: flex; gap: 4px; align-items: center; }
+  /* The new toggle: one button, two states, fixed width so the column never jumps. */
+  .add { width: 96px; justify-content: center; }
+  /* Added is the quiet state: 18 green pills in a column shouted louder than the card. */
+  .add.added { background: transparent; color: var(--muted-fg); }
+  .add.added svg { color: var(--success); }
+  .add.remove { background: color-mix(in oklab, oklch(0.68 0.22 13) 18%, var(--card)); color: oklch(0.78 0.16 13); }
+
+  /* Right pane */
+  .head { padding: 16px 16px 12px; display: flex; align-items: center; justify-content: space-between; }
+  h2 { font-family: Outfit; font-weight: 700; font-size: 18px; }
+  .settings { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border); }
+  .input { height: 36px; border-radius: 8px; background: var(--secondary); padding: 0 12px; display: flex; align-items: center; font-size: 14px; }
+  .row { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted-fg); }
+  .sel { height: 32px; border-radius: 8px; background: var(--secondary); padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; color: var(--foreground); font-size: 14px; }
+  .switch { width: 32px; height: 18px; border-radius: 999px; background: var(--primary); position: relative; }
+  .switch::after { content: ''; position: absolute; right: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; }
+  .count { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .count .big { font-size: 15px; }
+  .bar { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; margin: 0 16px 12px; }
+  .bar i { display: block; height: 100%; width: 75%; background: var(--accent); }
+  .set { flex: 1; min-height: 0; overflow: hidden; border-top: 1px solid var(--border); }
+  .sq { height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 16px; border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent); font-size: 14px; }
+  .sq .n { width: 20px; text-align: right; font-size: 13px; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+  .sq .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .x { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: var(--muted-fg); }
+  .sq.empty .slot { flex: 1; height: 26px; border: 1.5px dashed var(--border); border-radius: 6px; display: flex; align-items: center; padding: 0 10px; font-size: 13px; color: var(--muted-fg); margin-right: 36px; }
+  .actions { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+  .fillrow { display: flex; gap: 8px; }
+  .split { display: inline-flex; flex: 1; }
+  .split .btn:first-child { flex: 1; border-radius: 8px 0 0 8px; justify-content: center; background: color-mix(in oklab, var(--accent) 22%, var(--card)); color: var(--accent); }
+  .split .btn:last-child { border-radius: 0 8px 8px 0; padding: 0 10px; margin-left: 2px; background: color-mix(in oklab, var(--accent) 22%, var(--card)); color: var(--accent); }
+  .save { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+  .save p { flex: 1; font-size: 13px; color: var(--muted-fg); }
+
+  /* The Fill menu, shown open in the second capture. Opaque: text sits on it. */
+  .menu { display: none; position: absolute; width: 300px; background: oklch(0.27 0.018 275); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 16px 40px oklch(0 0 0 / .5); font-size: 13px; }
+  body.menu-open .menu { display: block; }
+  .menu h3 { font: 600 13px Jakarta; color: var(--muted-fg); margin-bottom: 10px; }
+  .lane { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .lane .name { width: 140px; display: flex; gap: 6px; align-items: center; }
+  .track { flex: 1; height: 6px; border-radius: 999px; background: var(--muted); position: relative; }
+  .track i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+  .lane .v { width: 18px; text-align: right; }
+  .menu p { color: var(--muted-fg); margin-top: 4px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="home"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Home</div>
+      <h1>Library</h1>
+      <p class="sub">Every bingo item you've written. Build a card on the right.</p>
+    </div>
+    <button class="btn primary lg"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Import List</button>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: the library -->
+    <section class="pane">
+      <div class="toolbar">
+        <div class="chips">
+          <span class="chip on">All <span class="num">24</span></span>
+          <span class="chip"><svg class="glyph mw" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Modern Warfare 2019 <span class="num">17</span></span>
+          <span class="chip"><svg class="glyph rl" viewBox="0 0 24 24"><path d="M5 16h14l-1.5-5.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>Rocket League <span class="num">7</span></span>
+        </div>
+        <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search Items</div>
+      </div>
+      <ul id="lib"></ul>
+    </section>
+
+    <!-- RIGHT: the card -->
+    <section class="pane">
+      <div class="head">
+        <h2>Card</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New Card</button>
+          <button class="btn">Load Saved<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+      </div>
+      <div class="settings">
+        <div class="input">Game Night</div>
+        <div class="row">
+          <span style="display:flex;gap:8px;align-items:center">Size <span class="sel"><span class="num">5×5</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></span>
+          <span style="display:flex;gap:8px;align-items:center"><span class="switch"></span>Free Space</span>
+          <span style="margin-left:auto;display:flex;gap:8px;align-items:center">Style <span class="sel">Neon<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></span>
+        </div>
+      </div>
+      <div class="count">
+        <span class="big"><span class="num">18</span> <span style="color:var(--muted-fg)">of</span> <span class="num">24</span> Squares</span>
+        <span style="font-size:13px;color:var(--muted-fg)">Card Heat <span class="num" style="color:var(--accent)">41%</span></span>
+      </div>
+      <div class="bar"><i></i></div>
+      <ul class="set" id="set"></ul>
+      <div class="actions">
+        <div class="fillrow">
+          <span class="split">
+            <button class="btn" id="fill"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="16" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Fill <span class="num">6</span> Empty Randomly</button>
+            <button class="btn" id="caret"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          </span>
+          <button class="btn ghost">Clear Card</button>
+        </div>
+        <div class="save">
+          <p><span class="num" style="color:var(--foreground)">6</span> Squares To Go</p>
+          <button class="btn" style="opacity:.45">Save Card</button>
+          <button class="btn primary" style="opacity:.45">Host This Card</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="menu" id="menu">
+  <h3>Fill Empty Squares From</h3>
+  <div class="lane"><span class="name"><svg class="glyph mw" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Modern Warfare</span><span class="track"><i style="width:66%;background:var(--mw)"></i></span><span class="v num">4</span></div>
+  <div class="lane"><span class="name"><svg class="glyph rl" viewBox="0 0 24 24"><path d="M5 16h14l-1.5-5.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>Rocket League</span><span class="track"><i style="width:34%;background:var(--rl)"></i></span><span class="v num">2</span></div>
+  <p>Only the empty squares change. Everything already on the card stays put.</p>
+</div>
+
+<script>
+  // Real items from squares-list.md, so lengths and truncation are honest.
+  const MW = ['Poppy Corn','Play Of The Game','15 K/D or Above','Hold Entire Team Under 1 K/D','Run Into Shitter','Perform a Finishing Move','Sniping First Blood','Clean Shitter Check','0 Deaths','Triple Headshot (Kill Feed)','Hold a Team to Under 25 Points','Get a Ho Yeah','Kill Trade','All Teammates Less Than 10 Kills','Close Game (Within 3 Points)','Get 3 Total VTOLS','GoDz Clan Sighting'];
+  const RL = ['Comment After A Goal','Get Top Honors','Complaining About No Save','No GG After Match','Unprovoked What Save','Demo Pussies','Aerial Goal (In Air Only)'];
+  const mwG = '<svg class="glyph mw" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+  const rlG = '<svg class="glyph rl" viewBox="0 0 24 24"><path d="M5 16h14l-1.5-5.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>';
+  const all = [...MW.map(t => ({ t, g: 'mw' })), ...RL.map(t => ({ t, g: 'rl' }))].sort((a, b) => a.t.localeCompare(b.t));
+  // 18 on the card: everything except six, so the left shows both states.
+  const off = new Set(['GoDz Clan Sighting','Get 3 Total VTOLS','No GG After Match','Hold a Team to Under 25 Points','Clean Shitter Check','Run Into Shitter']);
+  const onCard = all.filter(i => !off.has(i.t));
+  const heat = t => (t.length * 7) % 4;
+  const lib = document.getElementById('lib');
+  all.forEach((i, idx) => {
+    const on = !off.has(i.t);
+    const hover = i.t === 'Demo Pussies'; // one Added row shown hovered: it offers Remove
+    const btn = !on
+      ? '<button class="btn add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</button>'
+      : hover
+        ? '<button class="btn add remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove</button>'
+        : '<button class="btn add added"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Added</button>';
+    const h = heat(i.t);
+    lib.insertAdjacentHTML('beforeend', `<li class="item ${on ? 'oncard' : ''}" ${hover ? 'style="background:color-mix(in oklab,var(--muted) 40%,transparent)"' : ''}>
+      <span class="box"></span>${i.g === 'mw' ? mwG : rlG}<span class="text">${i.t}</span>
+      <span class="heat">${[6, 10, 14].map((px, k) => `<i class="${k < h ? 'h' : ''}" style="height:${px}px"></i>`).join('')}</span>
+      <span class="game">${i.g === 'mw' ? 'Modern Warfare 2019' : 'Rocket League'}<svg viewBox="0 0 24 24" style="width:14px"><path d="m6 9 6 6 6-6"/></svg></span>${btn}</li>`);
+  });
+  const set = document.getElementById('set');
+  onCard.forEach((i, n) => set.insertAdjacentHTML('beforeend', `<li class="sq"><span class="n">${n + 1}</span>${i.g === 'mw' ? mwG : rlG}<span class="text">${i.t}</span><span class="x"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></span></li>`));
+  for (let n = 19; n <= 24; n++) set.insertAdjacentHTML('beforeend', `<li class="sq empty"><span class="n">${n}</span><span class="slot">Empty</span></li>`);
+  // Scroll the card list to the bottom so the empty slots are in view.
+  set.style.overflow = 'auto'; set.scrollTop = set.scrollHeight;
+  // Anchor the Fill menu above its caret.
+  if (location.hash === '#menu') {
+    document.body.classList.add('menu-open');
+    const r = document.getElementById('caret').getBoundingClientRect();
+    const m = document.getElementById('menu');
+    m.style.left = (r.right - 300) + 'px';
+    m.style.top = (r.top - m.offsetHeight - 8) + 'px';
+  }
+</script>
+</body>
+</html>

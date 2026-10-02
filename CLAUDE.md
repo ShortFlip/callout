@@ -308,6 +308,7 @@ Read the file before changing the code it names. Each keeps the original text ve
 - Stay on Next.js + Supabase Realtime + Zustand + shadcn/ui — no custom socket server, no Redux; versions come from `package.json` — docs/decisions/0001-stack-choices.md
 - A win is whatever the claimant's tab detects; no Edge Function, RLS open, and that must change before outsiders join — docs/decisions/0002-client-side-win-verification.md
 - Every room keeps a `template_id` (unsaved cards are `saved = false` rows; Remove unsaves, never deletes); owner-only writes check the returned row count; after regenerating types, re-mark `players.Insert.claim_code` optional — docs/decisions/0003-item-library.md
+- The card is a list he fills: new cards start empty, Add never evicts, Fill Empty is the only random step, and nothing else moves a square — docs/decisions/0004-card-is-a-list-he-fills.md
 
 ### Plans
 

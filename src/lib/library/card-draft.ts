@@ -136,130 +136,53 @@ export function squareFrom(item: LibraryItem): SquareItem {
     : { text: item.text, libraryItemId: item.id };
 }
 
-export interface ReconcileResult {
-  /** Pins first, then everything else with kept squares in their old places. */
+export interface FillResult {
+  /** The card as it was, with the drawn squares appended. */
   set: SquareItem[];
-  /** The split buildCardSet settled on (pins win, caps apply). What Save stores. */
-  mix: CardMix;
-  /** Lanes that asked for more squares than they have items. */
+  /** How many squares the draw added. */
+  added: number;
+  /** Lanes that asked for more squares than they had items left. */
   capped: LaneKey[];
-  /** Squares still empty because the library is too small. */
+  /** Squares still empty because the library ran out of items. */
   shortBy: number;
 }
 
 /**
- * Rebuild a card after its size, free space, mix or pins change, while
- * changing as little as possible: moving the slider one notch swaps one
- * square, not all 24.
+ * Fill a card's empty squares at random, never touching what is already on
+ * it. This is the card builder's only random step (decision 0004): the card is
+ * a list he fills, and randomness happens only when he presses Fill.
  *
- * - buildCardSet decides the lane counts (pins win, caps and spill apply) and
- *   supplies a fresh draw per lane.
- * - Every unpinned square already on the card is kept if it is still in the
- *   pool and its lane still has room, in its current order.
- * - Only the shortfall per lane is filled, from buildCardSet's draw, into the
- *   places the dropped squares left.
- * - A text-only square (a saved card's item the library no longer has, so no
- *   libraryItemId) cannot be redrawn: it stays, takes a slot first, and blocks
- *   a library item with the same text from landing twice.
- *
- * Pass `current` as just the pins (and text-only squares) to reshuffle.
+ * - The draw skips every item already on the card, and any library item whose
+ *   text matches a text-only square (a saved card's item the library lost).
+ * - `mix` is read as proportions (allocateMix), so the split he set applies to
+ *   just the empty squares: 2:1 over 6 empty squares draws 4 and 2.
  */
-export function reconcileCardSet({
+export function fillEmptySquares({
   current,
   pool,
   slots,
   mix,
-  pinnedIds,
   rng,
 }: {
   current: SquareItem[];
   pool: LibraryItem[];
   slots: number;
   mix: CardMix;
-  pinnedIds: string[];
   rng: () => number;
-}): ReconcileResult {
-  const total = Math.max(0, Math.floor(slots));
+}): FillResult {
+  const empty = Math.max(0, Math.floor(slots) - current.length);
+  if (empty === 0) return { set: current, added: 0, capped: [], shortBy: 0 };
 
-  const extras = current.filter((square) => !square.libraryItemId).slice(0, total);
-  const extraKeys = new Set(extras.map((square) => textKey(square.text)));
-  const usable = pool.filter((item) => !extraKeys.has(textKey(item.text)));
-  const byId = new Map(usable.map((item) => [item.id, item]));
+  const onCard = new Set(current.map((square) => square.libraryItemId).filter((id): id is string => !!id));
+  const textOnly = new Set(current.filter((square) => !square.libraryItemId).map((square) => textKey(square.text)));
+  const usable = pool.filter((item) => !onCard.has(item.id) && !textOnly.has(textKey(item.text)));
 
-  const room = total - extras.length;
-  const built = buildCardSet({ pool: usable, slots: room, mix, pinnedIds, rng });
-
-  // buildCardSet puts the accepted pins first, in pin order.
-  const acceptedPins = [...new Set(pinnedIds)].filter((id) => byId.has(id)).slice(0, room);
-  const pinned = new Set(acceptedPins);
-
-  // What each lane still has room for once its pins are in.
-  const left = new Map<LaneKey, number>(built.mix.lanes.map((lane) => [lane.gameTagId, lane.count]));
-  for (const id of acceptedPins) {
-    const key = byId.get(id)!.gameTagId ?? null;
-    left.set(key, (left.get(key) ?? 0) - 1);
-  }
-
-  const take = (key: LaneKey): boolean => {
-    const n = left.get(key) ?? 0;
-    if (n <= 0) return false;
-    left.set(key, n - 1);
-    return true;
-  };
-
-  // Keepers: unpinned squares still in the pool, re-laned from the library in
-  // case the item's game changed, first come first kept.
-  const kept = new Map<string, SquareItem>();
-  for (const square of current) {
-    const id = square.libraryItemId;
-    if (!id || pinned.has(id) || kept.has(id)) continue;
-    const item = byId.get(id);
-    if (!item) continue;
-    const key = item.gameTagId ?? null;
-    if (!take(key)) continue;
-    kept.set(id, item.gameTagId
-      ? { ...square, libraryItemId: id, gameTagId: item.gameTagId }
-      : { text: square.text, libraryItemId: id });
-  }
-
-  // Fresh draws for whatever room is left, from buildCardSet's own draw.
-  const fresh: SquareItem[] = [];
-  for (const square of built.set) {
-    const id = square.libraryItemId!;
-    if (pinned.has(id) || kept.has(id)) continue;
-    if (take(square.gameTagId ?? null)) fresh.push(square);
-  }
-
-  const out: SquareItem[] = acceptedPins.map((id) => {
-    const existing = current.find((square) => square.libraryItemId === id);
-    const item = byId.get(id)!;
-    // Keep a pinned square's own text (a loaded card's spelling), re-laned.
-    return existing ? { ...squareFrom(item), text: existing.text } : squareFrom(item);
-  });
-
-  const placed = new Set<string>();
-  for (const square of current) {
-    const id = square.libraryItemId;
-    if (!id) {
-      if (extras.includes(square)) out.push(square);
-      continue;
-    }
-    if (pinned.has(id)) continue;
-    const keeper = kept.get(id);
-    if (keeper && !placed.has(id)) {
-      out.push(keeper);
-      placed.add(id);
-    } else if (!keeper && fresh.length > 0) {
-      out.push(fresh.shift()!);
-    }
-  }
-  out.push(...fresh);
-
+  const built = buildCardSet({ pool: usable, slots: empty, mix, pinnedIds: [], rng });
   return {
-    set: out,
-    mix: built.mix,
+    set: [...current, ...built.set],
+    added: built.set.length,
     capped: built.capped,
-    shortBy: Math.max(0, total - out.length),
+    shortBy: Math.max(0, empty - built.set.length),
   };
 }
 
@@ -338,15 +261,4 @@ export function itemsForSave(set: SquareItem[]): SquareItem[] {
     ...(square.libraryItemId ? { libraryItemId: square.libraryItemId } : {}),
     ...(square.gameTagId ? { gameTagId: square.gameTagId } : {}),
   }));
-}
-
-/** Same squares, same order: used to tell whether a rebuild changed the card. */
-export function sameSet(a: SquareItem[], b: SquareItem[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((square, i) =>
-      square.libraryItemId === b[i].libraryItemId &&
-      square.text === b[i].text &&
-      square.gameTagId === b[i].gameTagId)
-  );
 }

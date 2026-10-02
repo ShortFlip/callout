@@ -54,7 +54,8 @@ export function ItemsPane() {
   const addTagTo = useLibraryStore((s) => s.addTagTo);
   const removeTagFrom = useLibraryStore((s) => s.removeTagFrom);
   const deleteItems = useLibraryStore((s) => s.deleteItems);
-  const togglePin = useLibraryStore((s) => s.togglePin);
+  const addItem = useLibraryStore((s) => s.addItem);
+  const removeItem = useLibraryStore((s) => s.removeItem);
 
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newTagOpen, setNewTagOpen] = useState(false);
@@ -95,7 +96,7 @@ export function ItemsPane() {
     () => new Set(draft.set.map((s) => s.libraryItemId).filter((id): id is string => !!id)),
     [draft.set],
   );
-  const cardFull = draft.pinnedIds.length >= slotsFor(draft.boardSize, draft.freeSpace);
+  const cardFull = draft.set.length >= slotsFor(draft.boardSize, draft.freeSpace);
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedItems = useMemo(() => items.filter((i) => selected.has(i.id)), [items, selected]);
@@ -104,7 +105,11 @@ export function ItemsPane() {
 
   // Stable callbacks so memoised rows only re-render when their own item changes.
   const onSetGame = useCallback((id: string, gameTagId: string | null) => { void setGameFor([id], gameTagId); }, [setGameFor]);
-  const onPin = useCallback((id: string) => togglePin(id), [togglePin]);
+  // One button per row: it adds the item, or takes it back off when it is already on the card.
+  const onToggleCard = useCallback(
+    (id: string, on: boolean) => { if (on) removeItem(id); else addItem(id); },
+    [addItem, removeItem],
+  );
 
   // Make an item Add an Item just saved (or found as a duplicate) visible:
   // drop a search that hides it, go back to All if the filter hides it (he
@@ -355,7 +360,7 @@ export function ItemsPane() {
               onToggleSelected={toggleSelected}
               onRename={renameItem}
               onSetGame={onSetGame}
-              onPin={onPin}
+              onToggleCard={onToggleCard}
               flash={flash?.id === item.id ? flash.n : 0}
             />
           ))}

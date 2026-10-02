@@ -352,6 +352,12 @@ One line each, dated, so they are not relitigated.
   does not shout. The rail card drops its avatar and moves the placing pill
   beside the score so real names show whole; the profile dialog scrolls inside
   the window instead of running off it.
+- **Card builder is a list he fills (2026-10-01).** New cards start empty;
+  library rows toggle Add / Added (quiet) / Remove (on hover); the card is a
+  numbered list with dashed Empty rows and ✕ per square; Fill Empty (amber
+  split button, mix in its menu) is the only random step. Pins, Swap and
+  Reshuffle are gone. Rejected: the random deal with holds ("the most
+  confusing thing ever"). See docs/decisions/0004.
 
 ---
 
