@@ -61,3 +61,17 @@ export const CARD_PRESETS: CardStylePreset[] = [
     },
   },
 ];
+
+/**
+ * A card's styles redrawn in another preset, keeping its legend (the games
+ * and their logos). This is how the host's mid-game Style switch reaches the
+ * board: rooms.settings.stylePreset overrides the card's own colours for the
+ * night, and the saved card itself is never touched. An unknown or missing
+ * id leaves the styles as they are, so a room without a pick draws the card
+ * exactly as saved.
+ */
+export function withStylePreset(styles: CardStyles, presetId: string | null | undefined): CardStyles {
+  const preset = CARD_PRESETS.find((p) => p.id === presetId);
+  if (!preset) return styles;
+  return { ...preset.styles, ...(styles.legend ? { legend: styles.legend } : {}) };
+}

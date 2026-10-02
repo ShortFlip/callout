@@ -14,6 +14,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { createClient } from '@/lib/supabase/client';
 import { generateCard } from '@/lib/game/shuffle';
 import { buildGameSetup } from '@/lib/game/game-setup';
+import { withStylePreset } from '@/lib/card-styles';
 import { loadGamePlayers } from '@/lib/game/game-players';
 import { swapGameSquares } from '@/lib/game/swap-games';
 import { seededRng } from '@/lib/game/seed-rng';
@@ -48,8 +49,21 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     () => {
       restoreRoundRef.current?.().catch((err) => console.error('Round restore failed:', err));
     },
+    // The host switched the card style → redraw this board in it.
+    (stylePreset) => applyStyle(stylePreset),
   );
   const { gameId } = useGameStore();
+  // The host's Style pick for the night. Read from the room once, then kept
+  // current by style_changed, because initialRoom.settings is the server
+  // render's copy and goes stale the moment the host picks; every round this
+  // tab starts or restores reads it through roomSettings().
+  const stylePresetRef = useRef<string | undefined>(
+    (initialRoom.settings as { stylePreset?: string } | null)?.stylePreset,
+  );
+  const roomSettings = () => ({
+    ...((initialRoom.settings as Record<string, unknown> | null) ?? {}),
+    ...(stylePresetRef.current ? { stylePreset: stylePresetRef.current } : {}),
+  });
 
   // DEV-only handle so the store can be inspected from Playwright during
   // verification. Stripped from production builds by the NODE_ENV check.
@@ -209,7 +223,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
 
     // Same bootstrap the lobby/new-round paths use, seeded from the existing
     // game so the item filter (and therefore indices) can't drift.
-    const setup = buildGameSetup(template, initialRoom.settings, game.seed);
+    const setup = buildGameSetup(template, roomSettings(), game.seed);
     const items = setup.items;
 
     // The stored card wins over a regenerated one: the host may have edited
@@ -477,7 +491,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       await cancelUnwonRound();
 
       // Shared bootstrap: item filter + settings parse + fresh seed/call list
-      const setup = buildGameSetup(template, initialRoom.settings);
+      const setup = buildGameSetup(template, roomSettings());
       const { seed, items, callList } = setup;
 
       // Next round number comes from the DB, not the store: a host who
@@ -645,6 +659,38 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     }
   }
 
+  /** Redraw this tab's board in a card style. A preset it already shows is a no-op. */
+  function applyStyle(stylePreset: string) {
+    const store = useGameStore.getState();
+    if (stylePresetRef.current === stylePreset && store.cardStyles.preset === stylePreset) return;
+    stylePresetRef.current = stylePreset;
+    store.setCardStyles(withStylePreset(store.cardStyles, stylePreset));
+  }
+
+  /**
+   * Host switches the card style for the night. The broadcast goes first so
+   * every board changes at once; the room row is written after, so a tab that
+   * missed the broadcast (postgres_changes), a rejoin and New Round all keep
+   * it. The saved card is never touched. Settings are reread before the write
+   * so the merge never clobbers win patterns or the game mode.
+   */
+  async function handleSetStyle(stylePreset: string) {
+    applyStyle(stylePreset);
+    await broadcast('style_changed', { stylePreset });
+    try {
+      const supabase = createClient();
+      const { data, error: readError } = await supabase.from('rooms').select('settings').eq('id', initialRoom.id).single();
+      if (readError) throw readError;
+      const settings = { ...((data?.settings as Record<string, unknown> | null) ?? {}), stylePreset };
+      const { error } = await supabase.from('rooms').update({ settings: settings as Json }).eq('id', initialRoom.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to save the card style:', err);
+      // Everyone already sees it; only a refresh or the next round would lose it.
+      toast.warning("Style changed, but it couldn't be saved. A refresh may undo it.");
+    }
+  }
+
   // Host wraps up the night: room goes to 'finished' (the previously unreachable
   // GameOver state) and every client refreshes via the room_closed broadcast.
   async function handleEndGame() {
@@ -729,6 +775,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
           onNewRound={handleNewRound}
           onEndGame={handleEndGame}
           onSwapGames={handleSwapGames}
+          onSetStyle={handleSetStyle}
           onCallNext={handleCallNext}
         />
       );

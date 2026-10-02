@@ -79,6 +79,8 @@ interface GameState {
     startedAt?: string | null;
   }) => void;
   setMyCard: (card: SquareItem[]) => void;
+  /** The host's mid-game Style switch: redraws every board without touching cards or marks. */
+  setCardStyles: (styles: CardStyles) => void;
   setCalledCount: (count: number) => void;
   toggleMark: (gridIndex: number) => void;
   addWinner: (winner: GameWinner) => void;
@@ -90,7 +92,7 @@ interface GameState {
   resetGame: () => void;
 }
 
-const initial: Omit<GameState, keyof { initGame: unknown; setMyCard: unknown; setCalledCount: unknown; toggleMark: unknown; addWinner: unknown; setMyMarks: unknown; setHasClaimed: unknown; setOthers: unknown; addPlaceholders: unknown; setOtherMarks: unknown; resetGame: unknown }> = {
+const initial: Omit<GameState, keyof { initGame: unknown; setMyCard: unknown; setCardStyles: unknown; setCalledCount: unknown; toggleMark: unknown; addWinner: unknown; setMyMarks: unknown; setHasClaimed: unknown; setOthers: unknown; addPlaceholders: unknown; setOtherMarks: unknown; resetGame: unknown }> = {
   gameId: null,
   seed: null,
   roundNumber: 0,
@@ -134,6 +136,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   setMyCard: (myCard) => set({ myCard }),
+
+  setCardStyles: (cardStyles) => set({ cardStyles }),
 
   setCalledCount: (calledCount) => set({ calledCount }),
 
