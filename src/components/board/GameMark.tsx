@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
 import { cn } from '@/lib/utils';
 
 interface GameMarkProps {
@@ -28,8 +29,27 @@ interface GameMarkProps {
  * colour. Every surface that shows a game (library rows, chips, the board's
  * corner marker, the legend) draws through this, so a logo appears everywhere
  * at once.
+ *
+ * A one-colour logo (his MW wordmark and RL car are white) is drawn as a
+ * silhouette in the game's colour, the way the icons were: white-on-white
+ * vanished on Classic's white squares ("I have to click on them for it to
+ * show"), and orange vs blue is what tells MW from RL at a glance. It is a
+ * CSS mask, so the bucket's open CORS (Access-Control-Allow-Origin: *) is
+ * what lets it load. Only a logo uploaded as full colour (URL tagged #color
+ * by isFullColour at upload) keeps its own pixels.
  */
 export function GameMark({ icon: Icon, color, logoUrl, className, style, grow = false }: GameMarkProps) {
+  if (logoUrl && !logoUrl.endsWith(FULL_COLOUR_TAG)) {
+    const mask = `url("${logoUrl}") center / contain no-repeat`;
+    return (
+      <span
+        aria-hidden
+        data-logo={logoUrl}
+        className={cn('inline-block shrink-0', grow && 'scale-125', className)}
+        style={{ backgroundColor: color ?? 'currentColor', mask, WebkitMask: mask, ...style }}
+      />
+    );
+  }
   if (logoUrl) {
     return (
       // A plain img: logos are 128px PNGs from Supabase Storage, and next/image's

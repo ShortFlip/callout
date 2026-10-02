@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { isGameColorKey, isGameIconKey } from '@/lib/game-colors';
 import { planImport, textKey } from '@/lib/library/card-draft';
+import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
 import type { HeatRow } from '@/lib/library/heat';
 import { isScoredRound } from '@/lib/game/stats';
 import { hostCardName, type HostDraft } from '@/lib/library/hosting';
@@ -306,18 +307,21 @@ const LOGO_BUCKET = 'game-logos';
  * Upload a game's logo (already shrunk to a 128px PNG by the caller) and point
  * the tag at it, or clear it with `png = null`. Returns the new URL or null.
  * The file is named by the tag id so a re-upload replaces it; the ?t= stamp
- * busts the CDN cache the way avatars do. Owner only: a blocked update fails.
+ * busts the CDN cache the way avatars do. A full-colour logo's URL ends in
+ * FULL_COLOUR_TAG so GameMark keeps its pixels; anything else is drawn as a
+ * silhouette in the game's colour. Owner only: a blocked update fails.
  */
-export async function setGameLogo(tagId: string, png: Blob | null): Promise<string | null> {
+export async function setGameLogo(tagId: string, logo: { png: Blob; fullColour: boolean } | null): Promise<string | null> {
   const supabase = createClient();
   const path = `${tagId}.png`;
   let logoUrl: string | null = null;
+  const png = logo?.png ?? null;
   if (png) {
     const { error: uploadError } = await supabase.storage
       .from(LOGO_BUCKET)
       .upload(path, png, { upsert: true, contentType: 'image/png' });
     if (uploadError) fail('setGameLogo: upload', 'Could not upload that logo.', uploadError);
-    logoUrl = `${supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl}?t=${Date.now()}`;
+    logoUrl = `${supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl}?t=${Date.now()}${logo?.fullColour ? FULL_COLOUR_TAG : ''}`;
   }
   const { data, error } = await supabase.from('tags').update({ logo_url: logoUrl }).eq('id', tagId).select('id');
   if (error) fail('setGameLogo: update', 'Could not save that logo.', error);
