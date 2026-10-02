@@ -368,6 +368,7 @@ export type Database = {
           icon: string | null
           id: string
           kind: string
+          logo_url: string | null
           name: string
           owner_id: string
         }
@@ -377,6 +378,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          logo_url?: string | null
           name: string
           owner_id: string
         }
@@ -385,6 +387,7 @@ export type Database = {
           created_at?: string
           icon?: string | null
           id?: string
+          logo_url?: string | null
           kind?: string
           name?: string
           owner_id?: string

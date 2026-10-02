@@ -24,6 +24,7 @@ import { BTN, GameGlyph, HOVER_CONTROL, chipClass } from './GameGlyph';
 import { PickMenu } from './GameMenu';
 import { ItemRow } from './ItemRow';
 import { ConfirmDialog, NewGameDialog, NewTagDialog } from './TagDialogs';
+import { GameLogoDialog } from './GameLogoDialog';
 import type { LibraryItem, Tag } from '@/types/library';
 
 /** Extra-tag chips shown in the filter row; the rest go behind More Tags. */
@@ -58,6 +59,7 @@ export function ItemsPane() {
   const removeItem = useLibraryStore((s) => s.removeItem);
 
   const [newGameOpen, setNewGameOpen] = useState(false);
+  const [logoOpen, setLogoOpen] = useState(false);
   const [newTagOpen, setNewTagOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // The row Add an Item just landed on; n restarts the fade when the same row lights twice.
@@ -68,6 +70,7 @@ export function ItemsPane() {
   const extraTags = useMemo(() => tags.filter((t) => t.kind === 'tag'), [tags]);
   const gameIds = useMemo(() => new Set(games.map((g) => g.id)), [games]);
   const gameById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
+  const activeGame = gameById.get(filter) ?? null;
 
   const gameCounts = useMemo(() => {
     const counts = new Map<string | null, number>();
@@ -313,6 +316,13 @@ export function ItemsPane() {
                   Hottest First
                 </Button>
               )}
+              {/* With a game's chip picked, its logo is one click away. */}
+              {activeGame && (
+                <Button variant="outline" className={BTN} onClick={() => setLogoOpen(true)} data-testid="game-logo">
+                  <GameGlyph game={activeGame} />
+                  {activeGame.logoUrl ? 'Change Logo' : 'Add Logo'}
+                </Button>
+              )}
               <Button variant="outline" className={BTN} onClick={() => setNewGameOpen(true)}>
                 <Plus strokeWidth={1.75} />
                 New Game
@@ -368,6 +378,7 @@ export function ItemsPane() {
       )}
 
       <NewGameDialog open={newGameOpen} onOpenChange={setNewGameOpen} />
+      {activeGame && <GameLogoDialog game={activeGame} open={logoOpen} onOpenChange={setLogoOpen} />}
       <NewTagDialog open={newTagOpen} onOpenChange={setNewTagOpen} />
       <ConfirmDialog
         open={confirmDelete}

@@ -1,5 +1,6 @@
 'use client';
 
+import { GameMark } from './GameMark';
 import { cn } from '@/lib/utils';
 import type { BoardGame } from '@/lib/library/legend';
 
@@ -27,14 +28,13 @@ export function BoardLegend({ games, showNames = true, className }: BoardLegendP
   return (
     <ul aria-label="Games on this card" className={cn('flex items-center gap-2.5', className)}>
       {games.map((game) => {
-        const Icon = game.icon;
         return (
           <li
             key={game.gameTagId}
             title={showNames ? undefined : game.name}
             className="flex items-center gap-[5px] text-[13px] font-medium text-muted-foreground"
           >
-            <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.75} style={{ color: game.color }} />
+            <GameMark icon={game.icon} color={game.color} logoUrl={game.logoUrl} className="size-3.5" />
             {showNames ? (
               // data-legend-name: useLegendNamesFit measures these to know
               // how much width the names need when it has to put them back.

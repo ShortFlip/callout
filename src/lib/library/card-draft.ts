@@ -238,7 +238,14 @@ export function buildLegend(set: SquareItem[], tags: Tag[]): LegendEntry[] {
     if (!id || legend.some((entry) => entry.gameTagId === id)) continue;
     const tag = tags.find((t) => t.id === id);
     if (!tag || tag.kind !== 'game' || !tag.color || !tag.icon) continue;
-    legend.push({ gameTagId: tag.id, name: tag.name, color: tag.color, icon: tag.icon });
+    legend.push({
+      gameTagId: tag.id,
+      name: tag.name,
+      color: tag.color,
+      icon: tag.icon,
+      // Only when there is one, so a card without logos saves byte-for-byte as before.
+      ...(tag.logoUrl ? { logoUrl: tag.logoUrl } : {}),
+    });
   }
   return legend;
 }

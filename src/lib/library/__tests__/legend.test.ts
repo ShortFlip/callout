@@ -25,8 +25,18 @@ describe('squareGame', () => {
       name: 'Rocket League',
       color: GAME_COLORS.sky,
       icon: Flame,
+      logoUrl: null,
     });
     expect(squareGame(LEGEND, COD)?.icon).toBe(Crosshair);
+  });
+
+  it('carries an uploaded logo, and draws the icon for anything but an https URL', () => {
+    const logo = 'https://example.supabase.co/storage/v1/object/public/game-logos/rl.png?t=1';
+    const withLogo = LEGEND.map((entry) => (entry.gameTagId === RL ? { ...entry, logoUrl: logo } : entry));
+    expect(squareGame(withLogo, RL)?.logoUrl).toBe(logo);
+    expect(squareGame(withLogo, COD)?.logoUrl).toBeNull();
+    const unsafe = LEGEND.map((entry) => ({ ...entry, logoUrl: 'javascript:alert(1)' }));
+    expect(squareGame(unsafe, RL)?.logoUrl).toBeNull();
   });
 
   it('resolves the newer icon keys (skull, bomb) like any other', () => {

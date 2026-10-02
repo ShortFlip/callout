@@ -13,6 +13,13 @@ export interface BoardGame {
   /** A CSS colour from GAME_COLORS, never the stored key. */
   color: string;
   icon: LucideIcon;
+  /** An uploaded logo, drawn instead of the icon. Null on cards saved before logos. */
+  logoUrl: string | null;
+}
+
+/** Only an https URL is drawn: the legend is unchecked JSON, and anything else falls back to the icon. */
+function safeLogo(value: unknown): string | null {
+  return typeof value === 'string' && value.startsWith('https://') ? value : null;
 }
 
 /**
@@ -23,10 +30,10 @@ export interface BoardGame {
  */
 function resolveEntry(entry: unknown): BoardGame | null {
   if (!entry || typeof entry !== 'object') return null;
-  const { gameTagId, name, color, icon } = entry as Partial<Record<keyof LegendEntry, unknown>>;
+  const { gameTagId, name, color, icon, logoUrl } = entry as Partial<Record<keyof LegendEntry, unknown>>;
   if (typeof gameTagId !== 'string' || typeof name !== 'string') return null;
   if (!isGameColorKey(color) || !isGameIconKey(icon)) return null;
-  return { gameTagId, name, color: GAME_COLORS[color], icon: GAME_ICONS[icon] };
+  return { gameTagId, name, color: GAME_COLORS[color], icon: GAME_ICONS[icon], logoUrl: safeLogo(logoUrl) };
 }
 
 /**

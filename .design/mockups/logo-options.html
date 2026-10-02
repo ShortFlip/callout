@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Game Logo Options</title>
+<style>
+  /* A numbered sheet of every logo candidate, each at the sizes Squares really
+     draws them (16 library row, 20 library row with grow, 32 preview, 64), on
+     the app's panel colour. Images hot-link their sources; nothing is saved. */
+  @font-face { font-family: Jakarta; src: url(../../src/app/fonts/plus-jakarta-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 200 800; }
+  body { margin: 0; background: oklch(0.18 0.016 275); color: oklch(0.97 0.005 247); font: 14px Jakarta, sans-serif; padding: 20px; }
+  h2 { font-size: 18px; margin: 4px 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 24px; }
+  .opt { background: oklch(0.24 0.018 275); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .n { font-weight: 700; font-size: 15px; color: oklch(0.77 0.175 70); }
+  .src { font-size: 13px; color: oklch(0.72 0.025 240); }
+  .row { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+  .row img { object-fit: contain; }
+  .mono img { filter: invert(1); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const T = (h) => `https://cdn2.steamgriddb.com/icon_thumb/${h}.png`;
+  const I = (n) => `https://api.iconify.design/${n}.svg`;
+  const sets = {
+    'Rocket League': [
+      ['../refs/logos/rl-a-car-128.png', 'Current pick (car crop)'],
+      ...['898c04bc5803b86781af3afed5ee14fa','dea46a4f38b668b62990f52999540413','d538fafd2c832e8cb5d424d68dc7f8af','ee56b945da4167b78cf475c48ae0539b','4cf06252cc21d496e754ad7185d0617d','3bf96018c3621788e1f839660f9ea63e'].map((h) => [T(h), 'SteamGridDB']),
+      ...['f1e513f02d2dbe70b939178cb7d4fbac/32/1024x1024','0d3347d8bd713e6bef904fc592b7175c/32/512x512','bafe5445389494183e35a26cd3e57277/32/256x256','cdf7e3f1aa105d2096fc0a27780faaf7/32/512x512','5d00b894d2e2274d5112a2fcf153427e/32/256x256','06d135152618423c13d6696e46f97eca/32/256x256','db92620d3ccfb474aec36f8ce82be1a5/32/256x256','d8b61c5dcee25a9a279f0c66a98a2467/32/256x256','0cc918dec28dbd91f6006a2ce8101e2e/24/512x512'].map((p) => [`https://cdn2.steamgriddb.com/icon/${p}.png`, 'SteamGridDB']),
+      [I('cbi:rocketleague'), 'Brand icon (one colour)', 'mono'],
+    ],
+    'Modern Warfare 2019': [
+      ['../refs/logos/mw-b-face-tight-128.png', 'Current pick (Price crop)'],
+      ...['2245999e874c3ed961b9726d3231f66e','c4049edabae0c54e2347c82e21413ec3','19134f66fa77b43256c2dd800e358b00','3bbd91d5a1fd0a9d74370736fbb8be8d','d5a168f250495bc712a77fc08e4f6411','acaa34b54a9edc783ec0b6a0a27eaff7','960e22c062e54ee98c07ce83a5e39cff','3bbca1d243b01b47c2bf42b29a8b265c','95f45f60165144e5d874b1e57c097d51','b6ce1400b20fb1bc3dfc028a7d933d16','0b5b7dc5a512d54d9074fffbddd3cebf','7bb62fc652665e464a50dbebdf05abe8','c96aa42f76797d2b27e68ee4ccd8a8c8','3d4dbc428533a78280913214c949dd6f'].map((h) => [T(h), 'SteamGridDB']),
+      ...['fc51f5e7884ae7907030155cbb8bb5ac/32/512x512','a60be7562d8a1464738f129d97bc0c25/32/256x256','35dae000552fd88cce58a6571998738c/32/256x256','67affeff02107f710f7dd48c8fcc5365/32/256x256','494ba9ff03bdad881378a6fd4092a6c7/32/256x256','661b1e76b95cc50a7a11a85619a67d95/32/256x256','9693538320fa861c87d58d746c15a8cd/32/256x256'].map((p) => [`https://cdn2.steamgriddb.com/icon/${p}.png`, 'SteamGridDB']),
+      [I('arcticons:call-of-duty'), 'Line icon (one colour)', 'mono'],
+    ],
+  };
+  const root = document.getElementById('root');
+  const prefix = { 'Rocket League': 'R', 'Modern Warfare 2019': 'M' };
+  for (const [game, list] of Object.entries(sets)) {
+    if (location.hash && decodeURIComponent(location.hash.slice(1)) !== game) continue;
+    root.insertAdjacentHTML('beforeend', `<h2>${game}</h2><div class="grid">${list.map(([src, label, mono], i) => `
+      <div class="opt ${mono ? 'mono' : ''}"><div><span class="n">${prefix[game]}${i}</span> <span class="src">${label}</span></div>
+        <div class="row">${[16, 20, 32, 64].map((s) => `<img src="${src}" width="${s}" height="${s}">`).join('')}</div></div>`).join('')}</div>`);
+  }
+</script>
+</body>
+</html>

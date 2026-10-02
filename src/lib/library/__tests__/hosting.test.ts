@@ -17,8 +17,8 @@ const RL = 'game-rl';
 const COD = 'game-cod';
 
 const TAGS: Tag[] = [
-  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'flame' },
-  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair' },
+  { id: RL, ownerId: 'me', name: 'Rocket League', kind: 'game', color: 'sky', icon: 'flame', logoUrl: null },
+  { id: COD, ownerId: 'me', name: 'Call of Duty', kind: 'game', color: 'orange', icon: 'crosshair', logoUrl: null },
 ];
 
 const LEGEND: LegendEntry[] = [

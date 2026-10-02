@@ -1,5 +1,6 @@
 'use client';
 
+import { GameMark } from '@/components/board/GameMark';
 import { GAME_COLORS, GAME_ICONS } from '@/lib/game-colors';
 import { cn } from '@/lib/utils';
 import type { Tag } from '@/types/library';
@@ -7,8 +8,8 @@ import type { Tag } from '@/types/library';
 interface GameGlyphProps {
   /** The item's game tag; null or undefined draws an empty slot of the same size. */
   game: Tag | null | undefined;
-  /** 16 in rows and panes, 14 inside chips (the icon rule). */
-  size?: 14 | 16;
+  /** 16 in rows and panes, 14 inside chips (the icon rule); larger only in the logo preview. */
+  size?: number;
   className?: string;
 }
 
@@ -20,13 +21,14 @@ export function GameGlyph({ game, size = 16, className }: GameGlyphProps) {
   if (!game?.icon) {
     return <span aria-hidden className={cn('inline-block shrink-0', className)} style={{ width: size, height: size }} />;
   }
-  const Icon = GAME_ICONS[game.icon];
   return (
-    <Icon
-      aria-hidden
-      strokeWidth={1.75}
-      className={cn('shrink-0', className)}
-      style={{ width: size, height: size, color: game.color ? GAME_COLORS[game.color] : undefined }}
+    <GameMark
+      icon={GAME_ICONS[game.icon]}
+      color={game.color ? GAME_COLORS[game.color] : undefined}
+      logoUrl={game.logoUrl}
+      grow
+      className={className}
+      style={{ width: size, height: size }}
     />
   );
 }
