@@ -112,12 +112,17 @@ export function useRealtimeRoom(
   // INSERT we never got game_started for, or a reconnect that finds one).
   // RoomClient answers by re-running its DB bootstrap. Ref'd like onRoomClosed.
   onRoundChanged?: () => void,
+  // Fired with the host's new card style: the style_changed broadcast, or the
+  // postgres_changes fallback seeing rooms.settings.stylePreset change (a tab
+  // that missed the broadcast). Ref'd like onRoomClosed.
+  onStyleChanged?: (stylePreset: string) => void,
 ) {
   const [presentPlayers, setPresentPlayers] = useState<PresencePlayer[]>([]);
   const [connection, setConnection] = useState<ConnectionState>('connecting');
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onRoomClosedRef = useRef(onRoomClosed);
   const onRoundChangedRef = useRef(onRoundChanged);
+  const onStyleChangedRef = useRef(onStyleChanged);
   // Survives resubscribes on purpose: the whole point is to outlive the channel
   // that failed to send.
   const pendingRef = useRef<PendingBroadcast[]>([]);
@@ -130,6 +135,9 @@ export function useRealtimeRoom(
   useEffect(() => {
     onRoundChangedRef.current = onRoundChanged;
   }, [onRoundChanged]);
+  useEffect(() => {
+    onStyleChangedRef.current = onStyleChanged;
+  }, [onStyleChanged]);
 
   const { initGame, setMyCard, setCalledCount, addWinner } = useGameStore();
 
@@ -285,6 +293,12 @@ export function useRealtimeRoom(
           await loadGamePlayers(supabase, gameId, self.id, { includeMyCard: true });
         })
 
+        // The host switched the card style for the night. Boards redraw in place;
+        // cards and marks are untouched.
+        .on('broadcast', { event: 'style_changed' }, ({ payload }: { payload: { stylePreset?: unknown } }) => {
+          if (typeof payload.stylePreset === 'string') onStyleChangedRef.current?.(payload.stylePreset);
+        })
+
         .on('broadcast', { event: 'room_closed' }, () => {
           onRoomClosedRef.current?.();
         })
@@ -300,7 +314,11 @@ export function useRealtimeRoom(
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
-          ({ new: row }: { new: { status?: string } }) => {
+          ({ new: row }: { new: { status?: string; settings?: { stylePreset?: unknown } } }) => {
+            // A Style switch this tab's broadcast missed. Idempotent: RoomClient
+            // ignores a preset it already shows.
+            const stylePreset = row?.settings?.stylePreset;
+            if (typeof stylePreset === 'string') onStyleChangedRef.current?.(stylePreset);
             const status = row?.status;
             if (!status || status === lastRoomStatusRef.current) return;
             lastRoomStatusRef.current = status;

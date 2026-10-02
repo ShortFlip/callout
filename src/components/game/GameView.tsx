@@ -51,6 +51,8 @@ interface GameViewProps {
   onNewRound: () => Promise<void>;
   onEndGame: () => Promise<void>;
   onSwapGames: (dropGameTagId: string, targetGameTagId: string) => Promise<void>;
+  /** Host only: redraw every board in another card style for the rest of the night. */
+  onSetStyle: (stylePreset: string) => Promise<void>;
   onCallNext: (callsMade: number) => Promise<void>;
 }
 
@@ -64,6 +66,7 @@ export function GameView({
   onNewRound,
   onEndGame,
   onSwapGames,
+  onSetStyle,
   onCallNext,
 }: GameViewProps) {
   const { player } = usePlayer();
@@ -308,6 +311,8 @@ export function GameView({
                 onEndGame={() => { void onEndGame(); }}
                 swapGames={swapGames}
                 onSwapGames={onSwapGames}
+                stylePreset={styles.preset ?? 'default'}
+                onSetStyle={onSetStyle}
               />
             </div>
           )}

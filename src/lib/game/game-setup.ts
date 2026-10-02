@@ -1,4 +1,5 @@
 import { generateCallList } from './call-list';
+import { withStylePreset } from '@/lib/card-styles';
 import type { SquareItem, CardStyles } from '@/types/card';
 import type { WinPattern, GameMode } from '@/types/game';
 
@@ -50,7 +51,7 @@ export function buildGameSetup(
   );
 
   const settings =
-    (roomSettings as { winPatterns?: WinPattern[]; gameMode?: GameMode } | null) ?? {};
+    (roomSettings as { winPatterns?: WinPattern[]; gameMode?: GameMode; stylePreset?: string } | null) ?? {};
 
   return {
     seed,
@@ -61,6 +62,8 @@ export function buildGameSetup(
     shuffleMode: template.shuffle_mode as 'full' | 'column',
     winPatterns: settings.winPatterns ?? ['row', 'column', 'diagonal'],
     gameMode: settings.gameMode ?? 'honor',
-    cardStyles: (template.styles as CardStyles) ?? {},
+    // The host's mid-game Style pick (rooms.settings.stylePreset) wins over the
+    // card's own colours, so New Round and a rejoin keep it for the night.
+    cardStyles: withStylePreset((template.styles as CardStyles) ?? {}, settings.stylePreset),
   };
 }

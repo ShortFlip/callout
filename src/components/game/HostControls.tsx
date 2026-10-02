@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Palette } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/library/TagDialogs';
+import { CARD_PRESETS } from '@/lib/card-styles';
 import { cn } from '@/lib/utils';
 
 /** A game the round's cards actually use, named from the card's legend. */
@@ -26,6 +27,9 @@ interface HostControlsProps {
    */
   swapGames?: SwapGameOption[];
   onSwapGames?: (dropGameTagId: string, targetGameTagId: string) => Promise<void>;
+  /** The card style every board shows now. With onSetStyle, turns on the Style menu (header only). */
+  stylePreset?: string;
+  onSetStyle?: (stylePreset: string) => Promise<void>;
 }
 
 const HOST_BTN =
@@ -42,7 +46,7 @@ const HOST_BTN =
  * me confirm a mark, a reset, or a rejoin." The game swap is the exception: it
  * rewrites every player's card mid-round and cannot be undone, so it asks once.
  */
-export function HostControls({ onNewRound, onEndGame, swapGames, onSwapGames }: HostControlsProps) {
+export function HostControls({ onNewRound, onEndGame, swapGames, onSwapGames, stylePreset, onSetStyle }: HostControlsProps) {
   const [pending, setPending] = useState<{ drop: SwapGameOption; target: SwapGameOption } | null>(null);
   const games = swapGames ?? [];
   const canSwap = !!onSwapGames && games.length >= 2;
@@ -77,6 +81,31 @@ export function HostControls({ onNewRound, onEndGame, swapGames, onSwapGames }: 
                 onClick={() => setPending({ drop, target })}
               >
                 {drop.name} → {target.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {/* One click, no confirm: a style is cosmetic and switching back is one more click. */}
+      {onSetStyle && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(HOST_BTN, 'inline-flex items-center gap-1.5 text-foreground/85 outline-none')}
+            data-testid="host-style"
+          >
+            <Palette className="size-3.5 opacity-70" strokeWidth={1.75} />
+            Style
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {CARD_PRESETS.map((preset) => (
+              <DropdownMenuItem
+                key={preset.id}
+                onClick={() => { if (preset.id !== stylePreset) void onSetStyle(preset.id); }}
+                className="justify-between"
+              >
+                {preset.label}
+                {preset.id === stylePreset && <Check className="size-4 text-primary" strokeWidth={2} />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
