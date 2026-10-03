@@ -44,8 +44,8 @@ The card auto-fills from the Mix; `+` on the left pins an item into it, bumping 
 |---|------|------|--------|
 | 1 | Friends' marks don't show until refresh | Tweak | Parked by him ("no big deal"); fix is written below |
 | 2 | Early bingo, then backed off: banner stayed all round | Feature | Shipped #48 (two-context gate passed; not seen on a game night) |
-| 3 | Squares logo, a couple of batches | Feature (`/logo`) | Picked 1F (grid, blue to magenta, seamless); favicon shipped in the logo PR |
-| 4 | Swap asks which items replace the dropped squares | Feature | Go given 2026-10-03; building on `pick-the-swap` |
+| 3 | Squares logo, a couple of batches | Feature (`/logo`) | Shipped #49: 1F (grid, blue to magenta, seamless) as the tab icon |
+| 4 | Swap asks which items replace the dropped squares | Feature | Shipped #50 (two-context gate passed; not used on a game night) |
 
 ### 1 — Marks don't show until refresh (tweak)
 Marks travel only as a `mark_updated` broadcast. A tab that misses one (socket half-asleep behind a game, no error raised) never hears it again: the DB fallback covers `rooms` and `games`, not `game_players`, and `loadGamePlayers` only reruns on a resubscribe. That is why a refresh fixed it. Fix: reread `game_players` on a short interval while a round is live and whenever the tab regains focus, never rewinding a mark newer than the read. No migration, no new broadcast.
