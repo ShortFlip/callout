@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { generateCard } from '@/lib/game/shuffle';
 import { loadGamePlayers } from '@/lib/game/game-players';
 import { useGameStore } from '@/stores/gameStore';
+import { enqueuePending, pendingKey, type PendingBroadcast } from '@/lib/realtime/pending-key';
 import type { Player } from '@/types/player';
 import type { SquareItem, CardStyles } from '@/types/card';
 import type { WinPattern, GameMode } from '@/types/game';
@@ -57,30 +58,16 @@ interface BingoConfirmedPayload {
   finishPosition?: number;
 }
 
+// A winner took their win back: their marks no longer make a pattern.
+interface BingoRetractedPayload {
+  gameId?: string;
+  playerId: string;
+}
+
 interface MarkUpdatedPayload {
   gameId?: string;
   playerId: string;
   marks: number[];
-}
-
-/**
- * A broadcast that could not be sent (no channel during the reconnect backoff,
- * or the server never acked it). `key` coalesces: a newer mark_updated for the
- * same player supersedes an older one instead of replaying every tap.
- */
-interface PendingBroadcast {
-  key: string;
-  event: string;
-  payload: Record<string, unknown>;
-}
-
-function pendingKey(event: string, payload: Record<string, unknown>): string {
-  // Marks and call progress are "latest wins", and a player claims at most
-  // once per round; everything else (a new round, the night closing) is a
-  // one-off that must be delivered as-is.
-  if (event === 'mark_updated' || event === 'bingo_confirmed') return `${event}:${String(payload.playerId)}`;
-  if (event === 'item_called') return event;
-  return `${event}:${Date.now()}:${Math.random()}`;
 }
 
 // How long a games INSERT waits for the game_started broadcast before this tab
@@ -274,6 +261,18 @@ export function useRealtimeRoom(
           });
         })
 
+        // A win taken back (an early bingo that backed off). removeWinner is
+        // idempotent, so the retracting tab's own echo is a no-op; later
+        // winners move up a place, and the banner/gold clear once none remain.
+        .on('broadcast', { event: 'bingo_retracted' }, ({ payload }: { payload: BingoRetractedPayload }) => {
+          if (payload.gameId && payload.gameId !== useGameStore.getState().gameId) return;
+          const store = useGameStore.getState();
+          store.removeWinner(payload.playerId);
+          // My win taken back from another tab of mine: a later real win on
+          // this tab must be free to auto-claim again.
+          if (payload.playerId === self.id) store.setHasClaimed(false);
+        })
+
         .on('broadcast', { event: 'mark_updated' }, ({ payload }: { payload: MarkUpdatedPayload }) => {
           // Our own marks already live in myMarks; echoing them into `others`
           // would double-render us in the rail.
@@ -438,7 +437,7 @@ export function useRealtimeRoom(
     const key = pendingKey(event, payload);
     const enqueue = () => {
       // Replace an older copy under the same key rather than stacking them.
-      pendingRef.current = [...pendingRef.current.filter((p) => p.key !== key), { key, event, payload }];
+      pendingRef.current = enqueuePending(pendingRef.current, event, payload);
     };
     const channel = channelRef.current;
     if (!channel) {

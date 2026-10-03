@@ -115,7 +115,9 @@ export function GameView({
   const announcedRef = useRef(0);
   useEffect(() => {
     if (winners.length <= announcedRef.current) {
-      // A new round empties the list; the next win must announce again.
+      // A new round empties the list, and a retracted win shrinks it: neither
+      // announces anything, and the count drops with it so the next real win
+      // (a re-win after backing off included) announces again.
       announcedRef.current = winners.length;
       return;
     }

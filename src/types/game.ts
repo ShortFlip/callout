@@ -40,6 +40,8 @@ export type RealtimeEvent =
   | { type: 'square_marked'; playerId: string; squareIndex: number }
   | { type: 'bingo_claimed'; playerId: string; marks: number[] }
   | { type: 'bingo_confirmed'; playerId: string; pattern: WinPattern }
+  // The winner unmarked so no pattern holds: their win is undone everywhere
+  | { type: 'bingo_retracted'; gameId: string; playerId: string }
   | { type: 'round_reset'; newSeed: string; roundNumber: number }
   | { type: 'player_joined'; playerId: string; displayName: string }
   | { type: 'player_left'; playerId: string };

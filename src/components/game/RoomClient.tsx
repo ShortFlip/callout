@@ -22,6 +22,7 @@ import { loadLibrary } from '@/lib/library/api';
 import { squareFrom } from '@/lib/library/card-draft';
 import { saveLastRoom, clearLastRoom } from '@/lib/utils/last-room';
 import { checkWin, freeIndexOf } from '@/lib/game/win-detection';
+import { shouldRetractWin } from '@/lib/game/retract';
 import { withRetry, RETRY_DELAYS_MS } from '@/lib/utils/retry';
 import { resolveRestoredCard, computeBingoTimeMs } from '@/lib/game/restore';
 import type { Json, Tables } from '@/lib/supabase/types';
@@ -99,6 +100,17 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   useEffect(() => () => {
     if (persistMarksTimer.current) clearTimeout(persistMarksTimer.current);
   }, []);
+
+  // Win and retraction writes run one after another, never side by side. Each
+  // retries on its own backoff, so unchained a slow win write could land after
+  // the retraction that followed it and leave the row saying won = true for a
+  // win that was taken back (or the reverse for a quick re-win).
+  const winWriteChain = useRef<Promise<void>>(Promise.resolve());
+  function queueWinWrite(task: () => Promise<void>) {
+    winWriteChain.current = winWriteChain.current
+      .then(task)
+      .catch((err) => console.error('Win write failed:', err));
+  }
 
   // Transition lobby → game (and Game Over → game, when the host hits "Play
   // Again") once a game_started broadcast puts a gameId in the store. The
@@ -366,6 +378,19 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
           }
         });
     }, 500);
+
+    // An early bingo that backed off: I am a winner and these marks no longer
+    // make any pattern. Silent — never confirm a mark (DESIGN.md).
+    const state = useGameStore.getState();
+    if (shouldRetractWin({
+      isWinner: state.winners.some((w) => w.playerId === playerId),
+      marks,
+      boardSize: state.boardSize,
+      winPatterns: state.winPatterns,
+      freeIndex: state.freeSpace ? freeIndexOf(state.myCard) : null,
+    })) {
+      handleBingoRetract().catch((err) => console.error('Bingo retraction failed:', err));
+    }
   }
 
   async function handleBingoClaim() {
@@ -400,23 +425,25 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     // Persist the win. The DB row is what loadGamePlayers replays to any tab
     // that missed the broadcast, so a blip must not lose it: retry on the
     // shared backoff, and only tell the player once every attempt has failed.
+    // Queued behind any retraction still being written (see winWriteChain).
     const playerId = player.id;
-    withRetry<null>(async () => {
-      const { error } = await supabase.from('game_players').update({
-        won: true,
-        marks: myMarks,
-        finish_position: finishPosition,
-        bingo_time_ms: bingoTimeMs,
-      }).match({ game_id: gid, player_id: playerId });
-      if (error) console.error('Failed to persist win:', error);
-      return error ? { ok: false } : { ok: true, value: null };
-    }).then((result) => {
+    const isFirstWinner = currentWinners.length === 0;
+    queueWinWrite(async () => {
+      const result = await withRetry<null>(async () => {
+        const { error } = await supabase.from('game_players').update({
+          won: true,
+          marks: myMarks,
+          finish_position: finishPosition,
+          bingo_time_ms: bingoTimeMs,
+        }).match({ game_id: gid, player_id: playerId });
+        if (error) console.error('Failed to persist win:', error);
+        return error ? { ok: false } : { ok: true, value: null };
+      });
       if (!result.ok) toast.error('Your win was announced but not recorded in stats.');
-    });
 
-    // Update game status on first winner
-    if (currentWinners.length === 0) {
-      withRetry<null>(async () => {
+      // Update game status on first winner
+      if (!isFirstWinner) return;
+      const statusResult = await withRetry<null>(async () => {
         const { error } = await supabase.from('games').update({
           status: 'won',
           win_pattern: pattern,
@@ -424,10 +451,9 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
         }).eq('id', gid);
         if (error) console.error('Failed to update game status:', error);
         return error ? { ok: false } : { ok: true, value: null };
-      }).then((result) => {
-        if (!result.ok) toast.error('Round result could not be saved.');
       });
-    }
+      if (!statusResult.ok) toast.error('Round result could not be saved.');
+    });
 
     // If this can't be sent now, the hook queues it and sends it on the next
     // SUBSCRIBED; tabs that miss it entirely pick the win up from the DB.
@@ -438,6 +464,112 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       pattern,
       finishPosition,
     });
+  }
+
+  /**
+   * Take my win back: I unmarked a square and my marks no longer make a
+   * pattern (an early bingo, game night 2026-10-02). Undone everywhere — my
+   * store now, everyone else's through bingo_retracted, and the DB so the
+   * replay, /history and /leaderboard agree.
+   *
+   * DB writes come from this tab only, including the other winners' moved-up
+   * finish_position: the retracting tab is the one that knows a renumber is
+   * due, and an owner-writes-own-row scheme would leave a gap in the placings
+   * whenever another winner's tab was offline. Same shape as the host's swap,
+   * which also writes other players' rows.
+   */
+  async function handleBingoRetract() {
+    if (!player) return;
+    const { gameId: gid, winners, removeWinner, setHasClaimed } = useGameStore.getState();
+    if (!gid || !winners.some((w) => w.playerId === player.id)) return;
+    const playerId = player.id;
+    const wasFirst = winners[0]?.playerId === playerId;
+
+    // Local first, so my own banner and placing clear on this tap even if the
+    // channel is down. hasClaimed resets so a real win later auto-claims again.
+    removeWinner(playerId);
+    setHasClaimed(false);
+    const remaining = useGameStore.getState().winners;
+
+    queueWinWrite(async () => {
+      const supabase = createClient();
+      const rowResult = await withRetry<null>(async () => {
+        const { error } = await supabase.from('game_players').update({
+          won: false,
+          finish_position: null,
+          bingo_time_ms: null,
+          // The latest marks ride along, as the win write's do.
+          marks: useGameStore.getState().myMarks,
+        }).match({ game_id: gid, player_id: playerId });
+        if (error) console.error('Failed to retract win:', error);
+        return error ? { ok: false } : { ok: true, value: null };
+      });
+      if (!rowResult.ok) {
+        // Generic copy — never surface raw DB error text.
+        toast.error("Your win was taken back here but couldn't be saved.");
+        return;
+      }
+
+      const tidyResult = await withRetry<null>(async () => {
+        // Close the gap in the placings from the DB's own order, not this
+        // tab's: the DB is what /history, /leaderboard and the replay read.
+        const { data, error } = await supabase
+          .from('game_players')
+          .select('player_id, finish_position')
+          .eq('game_id', gid)
+          .eq('won', true)
+          .order('finish_position', { ascending: true, nullsFirst: false });
+        if (error) {
+          console.error('Failed to read winners after a retraction:', error);
+          return { ok: false };
+        }
+        const rows = data ?? [];
+        for (const [index, row] of rows.entries()) {
+          if (row.finish_position === index + 1) continue;
+          const { error: moveError } = await supabase
+            .from('game_players')
+            .update({ finish_position: index + 1 })
+            .match({ game_id: gid, player_id: row.player_id });
+          if (moveError) {
+            console.error('Failed to move a winner up a place:', moveError);
+            return { ok: false };
+          }
+        }
+
+        if (rows.length === 0 && remaining.length === 0) {
+          // Nobody holds a win: the round is live again, so End Night / New
+          // Round cancel it like any unwon round. Only a 'won' round flips
+          // back, so a round already cancelled is never reopened. A winner
+          // only this tab or only the DB knows of keeps it 'won' — their own
+          // claim saw a winner already and will not set the status again.
+          const { error: gameError } = await supabase
+            .from('games')
+            .update({ status: 'active', win_pattern: null, ended_at: null })
+            .eq('id', gid)
+            .eq('status', 'won');
+          if (gameError) {
+            console.error('Failed to reopen the round:', gameError);
+            return { ok: false };
+          }
+        } else if (wasFirst && remaining[0]) {
+          // Second place is first now; the round's pattern is theirs.
+          const { error: gameError } = await supabase
+            .from('games')
+            .update({ win_pattern: remaining[0].pattern })
+            .eq('id', gid);
+          if (gameError) {
+            console.error('Failed to update the round pattern:', gameError);
+            return { ok: false };
+          }
+        }
+        return { ok: true, value: null };
+      });
+      if (!tidyResult.ok) toast.error('Round result could not be saved.');
+    });
+
+    // Queued by the hook under the same key as bingo_confirmed if the channel
+    // is down, so only the latest of win / retraction is ever replayed.
+    await broadcast('bingo_retracted', { gameId: gid, playerId });
   }
 
   /**
@@ -736,8 +868,9 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     );
   }
 
-  // Show game over screen when room is finished OR when there are winners and
-  // the host has not started a new round yet (covers the in-game win state)
+  // Game Over is the finished room only. Winners never route here (the win
+  // state is the banner inside GameView), so a retracted win can never strand
+  // anyone on an ended screen.
   if (initialRoom.status === 'finished') {
     return (
       <GameOver

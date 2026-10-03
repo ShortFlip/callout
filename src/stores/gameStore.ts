@@ -29,6 +29,10 @@ export interface GameWinner {
   // 1 for first place, 2 for second. Optional because a legacy broadcast
   // omits it; when known it decides the order, not the order of arrival.
   finishPosition?: number;
+  // Date.now() when this tab first heard of the win. Lets the DB replay tell a
+  // win whose row write has not landed yet (keep it) from one the DB has since
+  // dropped (a retraction this tab missed). Optional: set by addWinner.
+  heardAt?: number;
 }
 
 interface GameState {
@@ -84,6 +88,7 @@ interface GameState {
   setCalledCount: (count: number) => void;
   toggleMark: (gridIndex: number) => void;
   addWinner: (winner: GameWinner) => void;
+  removeWinner: (playerId: string) => void;
   setMyMarks: (marks: number[]) => void;
   setHasClaimed: (claimed: boolean) => void;
   setOthers: (list: OtherPlayer[]) => void;
@@ -92,7 +97,7 @@ interface GameState {
   resetGame: () => void;
 }
 
-const initial: Omit<GameState, keyof { initGame: unknown; setMyCard: unknown; setCardStyles: unknown; setCalledCount: unknown; toggleMark: unknown; addWinner: unknown; setMyMarks: unknown; setHasClaimed: unknown; setOthers: unknown; addPlaceholders: unknown; setOtherMarks: unknown; resetGame: unknown }> = {
+const initial: Omit<GameState, keyof { initGame: unknown; setMyCard: unknown; setCardStyles: unknown; setCalledCount: unknown; toggleMark: unknown; addWinner: unknown; removeWinner: unknown; setMyMarks: unknown; setHasClaimed: unknown; setOthers: unknown; addPlaceholders: unknown; setOtherMarks: unknown; resetGame: unknown }> = {
   gameId: null,
   seed: null,
   roundNumber: 0,
@@ -165,9 +170,30 @@ export const useGameStore = create<GameState>((set, get) => ({
       ? -1
       : winners.findIndex((w) => w.finishPosition !== undefined && w.finishPosition > pos);
     const next = [...winners];
-    if (at === -1) next.push(winner);
-    else next.splice(at, 0, winner);
+    const entry = { ...winner, heardAt: winner.heardAt ?? Date.now() };
+    if (at === -1) next.push(entry);
+    else next.splice(at, 0, entry);
     set({ winners: next });
+  },
+
+  /**
+   * Undo a win: the winner unmarked a square so no pattern holds any more (an
+   * early bingo backed off). Everyone placed after them moves up one place, so
+   * second becomes first. Idempotent like addWinner — the retracting tab, its
+   * self-echoed broadcast and the DB replay can all ask for the same removal.
+   */
+  removeWinner: (playerId) => {
+    const { winners } = get();
+    const gone = winners.find((w) => w.playerId === playerId);
+    if (!gone) return;
+    const pos = gone.finishPosition;
+    set({
+      winners: winners
+        .filter((w) => w.playerId !== playerId)
+        .map((w) => (pos !== undefined && w.finishPosition !== undefined && w.finishPosition > pos
+          ? { ...w, finishPosition: w.finishPosition - 1 }
+          : w)),
+    });
   },
 
   setMyMarks: (myMarks) => set({ myMarks }),
