@@ -119,3 +119,43 @@ describe('initGame', () => {
     expect('startedAt' in useGameStore.getState()).toBe(false);
   });
 });
+
+describe('removeWinner', () => {
+  const win = (playerId: string, finishPosition: number) => ({ playerId, displayName: playerId, pattern: 'row' as const, finishPosition });
+
+  it('moves every later winner up one place', () => {
+    const store = useGameStore.getState();
+    store.addWinner(win('amy', 1));
+    store.addWinner(win('bob', 2));
+    store.addWinner(win('cat', 3));
+    useGameStore.getState().removeWinner('amy');
+    expect(useGameStore.getState().winners.map((w) => [w.playerId, w.finishPosition])).toEqual([['bob', 1], ['cat', 2]]);
+  });
+
+  it('leaves earlier winners where they are', () => {
+    const store = useGameStore.getState();
+    store.addWinner(win('amy', 1));
+    store.addWinner(win('bob', 2));
+    useGameStore.getState().removeWinner('bob');
+    expect(useGameStore.getState().winners.map((w) => [w.playerId, w.finishPosition])).toEqual([['amy', 1]]);
+  });
+
+  it('is idempotent: a second removal (echo, DB replay) changes nothing', () => {
+    const store = useGameStore.getState();
+    store.addWinner(win('amy', 1));
+    store.addWinner(win('bob', 2));
+    store.removeWinner('amy');
+    const after = useGameStore.getState().winners;
+    useGameStore.getState().removeWinner('amy');
+    expect(useGameStore.getState().winners).toBe(after);
+    expect(after.map((w) => w.finishPosition)).toEqual([1]);
+  });
+
+  it('lets the same player win again afterwards', () => {
+    const store = useGameStore.getState();
+    store.addWinner(win('amy', 1));
+    store.removeWinner('amy');
+    useGameStore.getState().addWinner(win('amy', 1));
+    expect(useGameStore.getState().winners.map((w) => w.playerId)).toEqual(['amy']);
+  });
+});

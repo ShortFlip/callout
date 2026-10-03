@@ -3,6 +3,8 @@ import { useGameStore, type OtherPlayer } from '@/stores/gameStore';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types';
 import type { WinPattern } from '@/types/game';
+import { checkWin, freeIndexOf } from './win-detection';
+import { staleWinnerIds } from './retract';
 
 /**
  * Read every player's row for a round out of the database and push it into
@@ -15,7 +17,8 @@ import type { WinPattern } from '@/types/game';
  * shows 0/25 after a refresh" as an unacceptable failure, so the DB — which
  * every client writes its own marks to on a 500 ms debounce — is the recovery
  * source. The same goes for `bingo_confirmed`: a missed bingo announcement is
- * not tolerated either, so the won rows are replayed as winners here.
+ * not tolerated either, so the won rows are replayed as winners here — and a
+ * winner the DB no longer has as won (a missed `bingo_retracted`) is dropped.
  * Called on mount, after the local upsert that follows `game_started`, and
  * every time the channel regains SUBSCRIBED.
  *
@@ -65,6 +68,30 @@ export async function loadGamePlayers(
   const wonRows = rows
     .filter((row) => row.won)
     .sort((a, b) => (a.finish_position ?? Infinity) - (b.finish_position ?? Infinity));
+
+  // A win can be taken back (bingo_retracted), and a tab that missed that
+  // broadcast still holds the winner. Drop any winner the DB no longer has as
+  // won — except one heard moments ago whose own write may not have landed,
+  // and my own win while my marks still make it (see staleWinnerIds).
+  const dbWonIds = new Set(wonRows.map((row) => row.player_id));
+  const selfStillWins = checkWin(
+    new Set(store.myMarks),
+    store.boardSize,
+    store.winPatterns,
+    store.freeSpace ? freeIndexOf(store.myCard) : null,
+  ) !== null;
+  for (const playerId of staleWinnerIds({
+    winners: store.winners,
+    dbWonIds,
+    selfPlayerId,
+    selfStillWins,
+    now: Date.now(),
+  })) {
+    store.removeWinner(playerId);
+    // My win gone from the DB (another tab of mine retracted it): a later real
+    // win here must be free to auto-claim again.
+    if (playerId === selfPlayerId) store.setHasClaimed(false);
+  }
   for (const row of wonRows) {
     const profile = row.players as { display_name: string } | null;
     const game = row.games as { win_pattern: string | null } | null;
