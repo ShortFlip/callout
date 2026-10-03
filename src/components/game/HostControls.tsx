@@ -8,15 +8,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ConfirmDialog } from '@/components/library/TagDialogs';
+import { SwapPicker, type SwapSide } from './SwapPicker';
 import { CARD_PRESETS } from '@/lib/card-styles';
 import { cn } from '@/lib/utils';
+import type { SwapPlan, SwapReplacements } from '@/lib/game/swap-games';
 
-/** A game the round's cards actually use, named from the card's legend. */
-export interface SwapGameOption {
-  gameTagId: string;
-  name: string;
-}
+/** A game the round's cards actually use, named (and marked) from the card's legend. */
+export type SwapGameOption = SwapSide;
 
 interface HostControlsProps {
   onNewRound: () => void;
@@ -26,7 +24,9 @@ interface HostControlsProps {
    * header passes it, the win banner does not (see GameView).
    */
   swapGames?: SwapGameOption[];
-  onSwapGames?: (dropGameTagId: string, targetGameTagId: string) => Promise<void>;
+  onSwapGames?: (dropGameTagId: string, targetGameTagId: string, replacements: SwapReplacements) => Promise<void>;
+  /** Loads what the swap picker lists. Required alongside onSwapGames. */
+  onLoadSwapPlan?: (dropGameTagId: string, targetGameTagId: string) => Promise<SwapPlan>;
   /** The card style every board shows now. With onSetStyle, turns on the Style menu (header only). */
   stylePreset?: string;
   onSetStyle?: (stylePreset: string) => Promise<void>;
@@ -44,12 +44,21 @@ const HOST_BTN =
  *
  * New Round and End Night are one click, no confirm: DESIGN.md — "Never make
  * me confirm a mark, a reset, or a rejoin." The game swap is the exception: it
- * rewrites every player's card mid-round and cannot be undone, so it asks once.
+ * rewrites every player's card mid-round and cannot be undone, so it opens a
+ * picker where the host chooses the replacements (or lets Pick For Me draw).
  */
-export function HostControls({ onNewRound, onEndGame, swapGames, onSwapGames, stylePreset, onSetStyle }: HostControlsProps) {
+export function HostControls({
+  onNewRound,
+  onEndGame,
+  swapGames,
+  onSwapGames,
+  onLoadSwapPlan,
+  stylePreset,
+  onSetStyle,
+}: HostControlsProps) {
   const [pending, setPending] = useState<{ drop: SwapGameOption; target: SwapGameOption } | null>(null);
   const games = swapGames ?? [];
-  const canSwap = !!onSwapGames && games.length >= 2;
+  const canSwap = !!onSwapGames && !!onLoadSwapPlan && games.length >= 2;
 
   // Every ordered pair: with three games the host picks which one to drop and
   // which to fill from in a single menu choice rather than two pickers.
@@ -118,20 +127,12 @@ export function HostControls({ onNewRound, onEndGame, swapGames, onSwapGames, st
         End Night
       </button>
 
-      {onSwapGames && (
-        <ConfirmDialog
-          open={!!pending}
-          onOpenChange={(open) => { if (!open) setPending(null); }}
-          title={pending ? `Swap ${pending.drop.name} → ${pending.target.name}?` : 'Swap Games?'}
-          body={
-            pending
-              ? `Every unmarked ${pending.drop.name} square on everyone's card becomes a ${pending.target.name} square. Marked squares and FREE stay put.`
-              : ''
-          }
-          confirmLabel="Swap Squares"
-          onConfirm={async () => {
-            if (pending) await onSwapGames(pending.drop.gameTagId, pending.target.gameTagId);
-          }}
+      {onSwapGames && onLoadSwapPlan && (
+        <SwapPicker
+          pending={pending}
+          onClose={() => setPending(null)}
+          onLoadPlan={onLoadSwapPlan}
+          onSwap={onSwapGames}
         />
       )}
     </>

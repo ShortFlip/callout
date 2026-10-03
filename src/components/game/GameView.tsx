@@ -16,7 +16,7 @@ import { usePlayer } from '@/hooks/usePlayer';
 import { useLegendNamesFit } from '@/hooks/useLegendNamesFit';
 import { useDevState } from '@/lib/dev-state';
 import { cardLegend, squareGame } from '@/lib/library/legend';
-import { gamesOnCards } from '@/lib/game/swap-games';
+import { gamesOnCards, type SwapPlan, type SwapReplacements } from '@/lib/game/swap-games';
 import { bestLine, bestLineLabel, freeIndexOf } from '@/lib/game/win-detection';
 import { copyLink } from '@/lib/utils/copy-link';
 import { playerColor, getInitials } from '@/lib/utils/player-color';
@@ -50,7 +50,9 @@ interface GameViewProps {
   onBingoClaim: () => Promise<void>;
   onNewRound: () => Promise<void>;
   onEndGame: () => Promise<void>;
-  onSwapGames: (dropGameTagId: string, targetGameTagId: string) => Promise<void>;
+  onSwapGames: (dropGameTagId: string, targetGameTagId: string, replacements: SwapReplacements) => Promise<void>;
+  /** Host only: what the swap picker lists for one direction. */
+  onLoadSwapPlan: (dropGameTagId: string, targetGameTagId: string) => Promise<SwapPlan>;
   /** Host only: redraw every board in another card style for the rest of the night. */
   onSetStyle: (stylePreset: string) => Promise<void>;
   onCallNext: (callsMade: number) => Promise<void>;
@@ -66,6 +68,7 @@ export function GameView({
   onNewRound,
   onEndGame,
   onSwapGames,
+  onLoadSwapPlan,
   onSetStyle,
   onCallNext,
 }: GameViewProps) {
@@ -247,7 +250,7 @@ export function GameView({
     const ids = gamesOnCards([card, ...Object.values(others).map((o) => o.card)]);
     return ids.flatMap((gameTagId) => {
       const game = squareGame(styles.legend, gameTagId);
-      return game ? [{ gameTagId, name: game.name }] : [];
+      return game ? [{ gameTagId, name: game.name, game }] : [];
     });
   }, [card, others, styles.legend]);
   // A callback ref, not useRef: the row does not exist while the skeleton
@@ -313,6 +316,7 @@ export function GameView({
                 onEndGame={() => { void onEndGame(); }}
                 swapGames={swapGames}
                 onSwapGames={onSwapGames}
+                onLoadSwapPlan={onLoadSwapPlan}
                 stylePreset={styles.preset ?? 'default'}
                 onSetStyle={onSetStyle}
               />
