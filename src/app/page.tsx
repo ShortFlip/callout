@@ -1,9 +1,10 @@
 'use client';
 
+import { SquaresMark } from '@/components/layout/SquaresMark';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, ArrowRight, Grid3x3, History, Trophy, LogIn } from 'lucide-react';
+import { Plus, ArrowRight, History, Trophy, LogIn } from 'lucide-react';
 import { CreateRoomDialog } from '@/components/game/CreateRoomDialog';
 import { TemplateList } from '@/components/game/TemplateList';
 import { Button } from '@/components/ui/button';
@@ -89,7 +90,7 @@ function HomePageContent() {
         {/* ── Hero ── */}
         <div className="text-center space-y-3 pt-4">
           <div className="flex items-center justify-center">
-            <Grid3x3 className="w-9 h-9 text-primary" />
+            <SquaresMark size={72} />
           </div>
           <h1 className="font-display text-6xl font-black tracking-tight">SQUARES</h1>
           <p className="text-muted-foreground max-w-xs mx-auto">
