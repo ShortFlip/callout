@@ -5,6 +5,7 @@ import type { Database } from '@/lib/supabase/types';
 import type { WinPattern } from '@/types/game';
 import { checkWin, freeIndexOf } from './win-detection';
 import { staleWinnerIds } from './retract';
+import { CATCH_UP_WINNER_GRACE_MS, readMayOverwrite, type CatchUpGuard } from '@/lib/realtime/catch-up';
 
 /**
  * Read every player's row for a round out of the database and push it into
@@ -19,14 +20,23 @@ import { staleWinnerIds } from './retract';
  * source. The same goes for `bingo_confirmed`: a missed bingo announcement is
  * not tolerated either, so the won rows are replayed as winners here — and a
  * winner the DB no longer has as won (a missed `bingo_retracted`) is dropped.
- * Called on mount, after the local upsert that follows `game_started`, and
- * every time the channel regains SUBSCRIBED.
+ * Called on mount, after the local upsert that follows `game_started`, every
+ * time the channel regains SUBSCRIBED, and as useRealtimeRoom's catch-up read
+ * (every few seconds in a live round, and when the tab wakes up).
  *
  * `includeMyCard` also replaces my own card with my row's card_data. Only the
  * mid-round game swap rewrites a card after the round starts, so only its
  * broadcast and the reconnect replay (which may have missed that broadcast)
  * ask for it; every other caller already built my card from the same row.
  * Marks are untouched: they are grid indexes and the swap keeps positions.
+ *
+ * `catchUp` marks the periodic catch-up read in useRealtimeRoom. It runs every
+ * few seconds, so it lands right beside live broadcasts far more often than the
+ * other callers do, and must never rewind them: a player whose `mark_updated`
+ * arrived after (or just before) the read started keeps their live marks, a
+ * winner heard live gets the full win-write retry span before a read may drop
+ * them, and a heard retraction is not undone by a row whose `won = false`
+ * write is still landing. Without it every field is taken from the DB.
  *
  * Returns false when the read failed, so a caller that must not act on a
  * partial picture (the rejoin path, before it restores marks) can retry.
@@ -35,7 +45,11 @@ export async function loadGamePlayers(
   supabase: SupabaseClient<Database>,
   gameId: string,
   selfPlayerId: string,
-  { quiet = false, includeMyCard = false }: { quiet?: boolean; includeMyCard?: boolean } = {},
+  {
+    quiet = false,
+    includeMyCard = false,
+    catchUp,
+  }: { quiet?: boolean; includeMyCard?: boolean; catchUp?: CatchUpGuard } = {},
 ): Promise<boolean> {
   // The FK hint disambiguates the join: game_players references players twice
   // is not the case today, but naming the constraint keeps this stable if it
@@ -86,13 +100,27 @@ export async function loadGamePlayers(
     selfPlayerId,
     selfStillWins,
     now: Date.now(),
+    // The catch-up read fires every few seconds, so it would otherwise meet a
+    // win whose write is still retrying and drop it (then re-add it, replaying
+    // the fanfare). The other callers keep the original short grace.
+    graceMs: catchUp ? CATCH_UP_WINNER_GRACE_MS : undefined,
   })) {
     store.removeWinner(playerId);
     // My win gone from the DB (another tab of mine retracted it): a later real
     // win here must be free to auto-claim again.
     if (playerId === selfPlayerId) store.setHasClaimed(false);
   }
+  // A retraction this tab heard live, whose `won = false` write has not landed
+  // yet: the row still says won, and re-adding it would replay the fanfare.
+  const retractionPending = (playerId: string) =>
+    catchUp !== undefined
+    && !readMayOverwrite(catchUp.startedAt, catchUp.retractHeardAt.get(playerId), CATCH_UP_WINNER_GRACE_MS);
   for (const row of wonRows) {
+    if (retractionPending(row.player_id)) continue;
+    // My own row still says won but my marks no longer make a pattern: I took
+    // the win back and that write is still landing (my retraction's echo may
+    // not have reached this tab). My board is the truth for my win.
+    if (catchUp && row.player_id === selfPlayerId && !selfStillWins) continue;
     const profile = row.players as { display_name: string } | null;
     const game = row.games as { win_pattern: string | null } | null;
     store.addWinner({
@@ -112,14 +140,21 @@ export async function loadGamePlayers(
     .filter((row) => row.player_id !== selfPlayerId)
     .map((row) => {
       const profile = row.players as { display_name: string; avatar_url: string | null } | null;
+      const existing = store.others[row.player_id];
+      // A live mark_updated newer than this read: its marks win over the DB's
+      // (which lag it by the sender's write debounce). Never rewind a board.
+      const keepLiveMarks = catchUp !== undefined
+        && existing !== undefined
+        && !readMayOverwrite(catchUp.startedAt, catchUp.markHeardAt.get(row.player_id));
+      const keepLiveWin = existing !== undefined && retractionPending(row.player_id);
       return {
         playerId: row.player_id,
         displayName: profile?.display_name ?? 'Player',
         avatarUrl: profile?.avatar_url ?? null,
         card: (row.card_data ?? []) as OtherPlayer['card'],
-        marks: (row.marks ?? []) as number[],
-        won: row.won,
-        finishPosition: row.finish_position,
+        marks: keepLiveMarks ? existing.marks : (row.marks ?? []) as number[],
+        won: keepLiveWin ? existing.won : row.won,
+        finishPosition: keepLiveWin ? existing.finishPosition : row.finish_position,
         synced: true,
       };
     });

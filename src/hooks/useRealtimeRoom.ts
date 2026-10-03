@@ -8,6 +8,7 @@ import { generateCard } from '@/lib/game/shuffle';
 import { loadGamePlayers } from '@/lib/game/game-players';
 import { useGameStore } from '@/stores/gameStore';
 import { enqueuePending, pendingKey, type PendingBroadcast } from '@/lib/realtime/pending-key';
+import { CATCH_UP_INTERVAL_MS } from '@/lib/realtime/catch-up';
 import type { Player } from '@/types/player';
 import type { SquareItem, CardStyles } from '@/types/card';
 import type { WinPattern, GameMode } from '@/types/game';
@@ -103,6 +104,9 @@ export function useRealtimeRoom(
   // postgres_changes fallback seeing rooms.settings.stylePreset change (a tab
   // that missed the broadcast). Ref'd like onRoomClosed.
   onStyleChanged?: (stylePreset: string) => void,
+  // rooms.status as the page last rendered it. The catch-up read below runs
+  // only while it is 'playing': no boards in the lobby, none after the night.
+  roomStatus?: string,
 ) {
   const [presentPlayers, setPresentPlayers] = useState<PresencePlayer[]>([]);
   const [connection, setConnection] = useState<ConnectionState>('connecting');
@@ -116,6 +120,14 @@ export function useRealtimeRoom(
   // Last rooms.status we acted on, so a duplicate UPDATE (or one that merely
   // touched another column) doesn't trigger a redundant refresh.
   const lastRoomStatusRef = useRef<string | null>(null);
+  // When this tab last applied a live mark_updated / heard a bingo_retracted,
+  // per player. The catch-up read checks these so a DB row that lags a
+  // broadcast never rewinds it (see lib/realtime/catch-up.ts). Refs, not
+  // state: they are read at the moment a read lands, never rendered.
+  const markHeardAtRef = useRef<Map<string, number>>(new Map());
+  const retractHeardAtRef = useRef<Map<string, number>>(new Map());
+  // The round the two maps above belong to, so a new round starts them empty.
+  const heardForGameRef = useRef<string | null>(null);
   useEffect(() => {
     onRoomClosedRef.current = onRoomClosed;
   }, [onRoomClosed]);
@@ -266,6 +278,7 @@ export function useRealtimeRoom(
         // winners move up a place, and the banner/gold clear once none remain.
         .on('broadcast', { event: 'bingo_retracted' }, ({ payload }: { payload: BingoRetractedPayload }) => {
           if (payload.gameId && payload.gameId !== useGameStore.getState().gameId) return;
+          retractHeardAtRef.current.set(payload.playerId, Date.now());
           const store = useGameStore.getState();
           store.removeWinner(payload.playerId);
           // My win taken back from another tab of mine: a later real win on
@@ -278,6 +291,14 @@ export function useRealtimeRoom(
           // would double-render us in the rail.
           if (payload.playerId === self.id) return;
           if (payload.gameId && payload.gameId !== useGameStore.getState().gameId) return;
+          // DEV-only: lets the live gate stage a tab that silently misses
+          // mark broadcasts, so the catch-up read is what has to deliver them.
+          // The NODE_ENV check is inlined at build time, so production drops it.
+          if (
+            process.env.NODE_ENV !== 'production'
+            && (window as unknown as { __squaresDropMarks?: boolean }).__squaresDropMarks
+          ) return;
+          markHeardAtRef.current.set(payload.playerId, Date.now());
           useGameStore.getState().setOtherMarks(payload.playerId, payload.marks);
         })
 
@@ -427,6 +448,73 @@ export function useRealtimeRoom(
     // Only re-subscribe on identity changes; the store setters and the
     // onRoomClosed callback are read through refs/getState on purpose.
   }, [roomCode, roomId, player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Catch-up read ─────────────────────────────────────────────────────────
+  // Other players' marks reach this tab only as mark_updated broadcasts, which
+  // are fire-and-forget: a throttled background tab or a half-dead socket that
+  // never raises CHANNEL_ERROR misses them, and the rail then shows a friend's
+  // board without marks they can see until someone refreshes (game night
+  // 2026-10-02). Every tab already writes its own marks to game_players, so
+  // while a round is live this rereads those rows on a short interval and the
+  // moment the tab wakes up. game_players is deliberately not in the realtime
+  // publication; one small select every few seconds is cheaper than that.
+  const liveGameId = useGameStore((s) => s.gameId);
+  useEffect(() => {
+    if (!player || !liveGameId || roomStatus !== 'playing') return;
+    const selfId = player.id;
+    const gameId = liveGameId;
+    const supabase = createClient();
+    if (heardForGameRef.current !== gameId) {
+      heardForGameRef.current = gameId;
+      markHeardAtRef.current.clear();
+      retractHeardAtRef.current.clear();
+    }
+    let stopped = false;
+    // One read at a time: a slow read is not stacked on by the next tick (or
+    // by focus and visibilitychange, which usually fire together).
+    let inFlight = false;
+
+    async function catchUp() {
+      if (stopped || inFlight) return;
+      if (useGameStore.getState().gameId !== gameId) return;
+      inFlight = true;
+      try {
+        // quiet: a failed read only logs. A toast every few seconds on a bad
+        // connection would be spam, and the next tick simply tries again.
+        // Never includeMyCard: that is for swaps, and my own marks stay mine.
+        await loadGamePlayers(supabase, gameId, selfId, {
+          quiet: true,
+          catchUp: {
+            startedAt: Date.now(),
+            markHeardAt: markHeardAtRef.current,
+            retractHeardAt: retractHeardAtRef.current,
+          },
+        });
+      } catch (err) {
+        console.error('Catch-up read failed:', err);
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    const timer = setInterval(() => void catchUp(), CATCH_UP_INTERVAL_MS);
+    // A hidden tab's timers are throttled to a minute or more, so coming back
+    // to it (or back online) reads at once instead of waiting for a tick.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void catchUp();
+    };
+    const onWake = () => void catchUp();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onWake);
+    window.addEventListener('online', onWake);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onWake);
+    };
+  }, [liveGameId, roomStatus, player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Send a broadcast event to the room channel. Never silently drops: with no
