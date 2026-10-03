@@ -42,7 +42,7 @@ The card auto-fills from the Mix; `+` on the left pins an item into it, bumping 
 
 | # | Item | Size | Status |
 |---|------|------|--------|
-| 1 | Friends' marks don't show until refresh | Tweak | Go given 2026-10-03 (I misread "no big deal" as parked); building on `marks-catch-up` |
+| 1 | Friends' marks don't show until refresh | Tweak | Shipped in the catch-up PR (two-context gate passed; not seen on a game night) |
 | 2 | Early bingo, then backed off: banner stayed all round | Feature | Shipped #48 (two-context gate passed; not seen on a game night) |
 | 3 | Squares logo, a couple of batches | Feature (`/logo`) | Shipped #49: 1F (grid, blue to magenta, seamless) as the tab icon |
 | 4 | Swap asks which items replace the dropped squares | Feature | Shipped #50 (two-context gate passed; not used on a game night) |

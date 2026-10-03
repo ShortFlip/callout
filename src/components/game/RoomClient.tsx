@@ -52,6 +52,8 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     },
     // The host switched the card style → redraw this board in it.
     (stylePreset) => applyStyle(stylePreset),
+    // Gates the catch-up read of everyone's marks to a round on screen.
+    initialRoom.status,
   );
   const { gameId } = useGameStore();
   // The host's Style pick for the night. Read from the room once, then kept
