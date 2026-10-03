@@ -16,7 +16,7 @@ import { generateCard } from '@/lib/game/shuffle';
 import { buildGameSetup } from '@/lib/game/game-setup';
 import { withStylePreset } from '@/lib/card-styles';
 import { loadGamePlayers } from '@/lib/game/game-players';
-import { swapGameSquares } from '@/lib/game/swap-games';
+import { planSwap, swapGameSquares, type SwapPlan, type SwapReplacements } from '@/lib/game/swap-games';
 import { seededRng } from '@/lib/game/seed-rng';
 import { loadLibrary } from '@/lib/library/api';
 import { squareFrom } from '@/lib/library/card-draft';
@@ -692,61 +692,107 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   }
 
   /**
-   * Host swaps one game's unmarked squares for another's on every card in the
-   * round ("we've left Rocket League for Modern Warfare"). card_data is the
-   * truth every tab reads, so the swap rewrites it row by row, then a
-   * cards_swapped broadcast tells every tab to reread.
+   * Everything a swap reads: every card in the round with its marks, and the
+   * pool the replacements come from. Shared by the picker (what to show) and
+   * the swap itself (what to write), so the two can never disagree.
+   *
+   * `libraryRequired`: the picker must not show a blank list because the
+   * library failed, so it throws; the swap itself carries on without it.
    */
-  async function handleSwapGames(dropGameTagId: string, targetGameTagId: string) {
-    const { gameId: gid, seed, templateItems, myMarks, others } = useGameStore.getState();
+  async function readSwapSource(targetGameTagId: string, libraryRequired: boolean) {
+    const { gameId: gid, templateItems, myMarks, others } = useGameStore.getState();
+    if (!player || !gid) throw new Error('No round to swap in');
+    const supabase = createClient();
+
+    // Fresh rows, not the store: a late joiner's card may not be in `others` yet.
+    const { data: rows, error: readError } = await supabase
+      .from('game_players')
+      .select('player_id, card_data, marks')
+      .eq('game_id', gid);
+    if (readError) throw readError;
+
+    const cards = (rows ?? []).flatMap((row) => {
+      const card = (row.card_data ?? []) as unknown as SquareItem[];
+      if (!Array.isArray(card) || card.length === 0) return [];
+      // Marks are saved on a 500ms debounce, so the DB can be a beat behind a
+      // fresh tap. Union it with what this tab heard live so a square marked
+      // a moment ago is never swapped out from under its player.
+      const liveMarks = row.player_id === player.id ? myMarks : (others[row.player_id]?.marks ?? []);
+      const marks = [...new Set([...((row.marks ?? []) as number[]), ...liveMarks])];
+      return [{ playerId: row.player_id, card, marks }];
+    });
+
+    // The pool: the round's own items (originalIndex = pool position, the
+    // same tag generateCard gives, so traditional-mode call checks still
+    // line up), then the host's library for that game. A saved card holds
+    // exactly N² items, so its pool alone has no spare Modern Warfare squares;
+    // the library is where the rest live. Library-only items carry no
+    // originalIndex, so in traditional mode they can never be called — fine
+    // for the honor-system mode this feature exists for.
+    const pool: SquareItem[] = templateItems.map((item, index) => ({ ...item, originalIndex: index }));
+    try {
+      const library = await loadLibrary(player.id);
+      pool.push(...library.items.filter((item) => item.gameTagId === targetGameTagId).map(squareFrom));
+    } catch (libraryError) {
+      if (libraryRequired) throw libraryError;
+      // Not fatal: the round's pool may still cover it; the skipped toast says if not.
+      console.error('Failed to load the library for a swap:', libraryError);
+    }
+    return { gid, cards, pool };
+  }
+
+  /** The seed every swap draw for this direction hangs off, so Pick For Me is stable within a round. */
+  function swapSeed(gid: string, dropGameTagId: string, targetGameTagId: string) {
+    return `${useGameStore.getState().seed ?? gid}:swap:${dropGameTagId}>${targetGameTagId}`;
+  }
+
+  /**
+   * What the host's swap picker shows: the dropped game's items still
+   * swappable, the target game's items on no card, and a seeded suggestion
+   * for Pick For Me. Throws on any read failure; the picker shows its own
+   * error state with generic copy.
+   */
+  async function handleLoadSwapPlan(dropGameTagId: string, targetGameTagId: string): Promise<SwapPlan> {
+    const { gid, cards, pool } = await readSwapSource(targetGameTagId, true);
+    return planSwap({
+      cards,
+      pool,
+      dropGameTagId,
+      targetGameTagId,
+      rng: seededRng(swapSeed(gid, dropGameTagId, targetGameTagId)),
+    });
+  }
+
+  /**
+   * Host swaps one game's unmarked squares for another's on every card in the
+   * round ("we've left Rocket League for Modern Warfare"). The host's picks
+   * map each dropped item to one chosen item, the same on every card; anything
+   * the picks do not cover falls back to a seeded draw. card_data is the truth
+   * every tab reads, so the swap rewrites it row by row, then a cards_swapped
+   * broadcast tells every tab to reread.
+   */
+  async function handleSwapGames(dropGameTagId: string, targetGameTagId: string, replacements: SwapReplacements) {
+    const gid = useGameStore.getState().gameId;
     if (!player || !gid) return;
     const supabase = createClient();
     // Outside the try so a failure partway through still tells every tab to
     // reread the cards that were already rewritten.
     let swapped = 0;
     try {
-
-      // Fresh rows, not the store: a late joiner's card may not be in `others` yet.
-      const { data: rows, error: readError } = await supabase
-        .from('game_players')
-        .select('player_id, card_data, marks')
-        .eq('game_id', gid);
-      if (readError) throw readError;
-
-      // The pool: the round's own items (originalIndex = pool position, the
-      // same tag generateCard gives, so traditional-mode call checks still
-      // line up), then the host's library for that game. A saved card holds
-      // exactly N² items, so its pool alone has no spare Modern Warfare squares;
-      // the library is where the rest live. Library-only items carry no
-      // originalIndex, so in traditional mode they can never be called — fine
-      // for the honor-system mode this feature exists for.
-      const pool: SquareItem[] = templateItems.map((item, index) => ({ ...item, originalIndex: index }));
-      try {
-        const library = await loadLibrary(player.id);
-        pool.push(...library.items.filter((item) => item.gameTagId === targetGameTagId).map(squareFrom));
-      } catch (libraryError) {
-        // Not fatal: the round's pool may still cover it; the skipped toast says if not.
-        console.error('Failed to load the library for a swap:', libraryError);
-      }
+      const { cards, pool } = await readSwapSource(targetGameTagId, false);
 
       let skipped = 0;
-      for (const row of rows ?? []) {
-        const card = (row.card_data ?? []) as unknown as SquareItem[];
-        if (!Array.isArray(card) || card.length === 0) continue;
-        // Marks are saved on a 500ms debounce, so the DB can be a beat behind a
-        // fresh tap. Union it with what this tab heard live so a square marked
-        // a moment ago is never swapped out from under its player.
-        const liveMarks = row.player_id === player.id ? myMarks : (others[row.player_id]?.marks ?? []);
-        const marks = [...new Set([...((row.marks ?? []) as number[]), ...liveMarks])];
-
+      for (const row of cards) {
         const result = swapGameSquares({
-          card,
-          marks,
+          card: row.card,
+          marks: row.marks,
           pool,
           dropGameTagId,
           targetGameTagId,
-          // Seeded per player so each board gets its own draw, reproducibly.
-          rng: seededRng(`${seed ?? gid}:swap:${dropGameTagId}>${targetGameTagId}:${row.player_id}`),
+          replacements,
+          // The fallback is seeded per player so each board gets its own
+          // draw, reproducibly; the host's picks are the same everywhere.
+          rng: seededRng(`${swapSeed(gid, dropGameTagId, targetGameTagId)}:${row.playerId}`),
         });
         skipped += result.skipped;
         if (result.swapped === 0) continue;
@@ -756,7 +802,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
         const { data: updated, error: writeError } = await supabase
           .from('game_players')
           .update({ card_data: result.card as unknown as Json })
-          .match({ game_id: gid, player_id: row.player_id })
+          .match({ game_id: gid, player_id: row.playerId })
           .select('player_id');
         if (writeError) throw writeError;
         if (!updated || updated.length === 0) throw new Error('Card update matched no row');
@@ -908,6 +954,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
           onNewRound={handleNewRound}
           onEndGame={handleEndGame}
           onSwapGames={handleSwapGames}
+          onLoadSwapPlan={handleLoadSwapPlan}
           onSetStyle={handleSetStyle}
           onCallNext={handleCallNext}
         />
