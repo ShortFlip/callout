@@ -4,7 +4,7 @@ import { SquaresMark } from '@/components/layout/SquaresMark';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, ArrowRight, History, Trophy, LogIn } from 'lucide-react';
+import { Plus, ArrowRight, History, Trophy, LogIn, Crown, Ticket } from 'lucide-react';
 import { CreateRoomDialog } from '@/components/game/CreateRoomDialog';
 import { TemplateList } from '@/components/game/TemplateList';
 import { Button } from '@/components/ui/button';
@@ -124,11 +124,18 @@ function HomePageContent() {
 
           {/* Host */}
           <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
-            <div className="space-y-1">
-              <h2 className="font-display text-lg font-bold">Host a Game</h2>
-              <p className="text-sm text-muted-foreground">
-                Pick a card and share a room code with your crew.
-              </p>
+            {/* Same icon tile as the quick-nav links below, one size up, so the
+                two primary cards read as destinations rather than text blocks. */}
+            <div className="flex items-start gap-3.5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-[10px] border border-primary/40 bg-primary/15">
+                <Crown className="size-[22px] text-primary" />
+              </span>
+              <div className="space-y-1">
+                <h2 className="font-display text-lg font-bold">Host a Game</h2>
+                <p className="text-sm text-muted-foreground">
+                  Pick a card and share a room code with your crew.
+                </p>
+              </div>
             </div>
             <div className="flex flex-col gap-2 mt-auto">
               <Button className="w-full gap-2" onClick={() => setCreateOpen(true)}>
@@ -140,11 +147,16 @@ function HomePageContent() {
 
           {/* Join */}
           <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
-            <div className="space-y-1">
-              <h2 className="font-display text-lg font-bold">Join a Game</h2>
-              <p className="text-sm text-muted-foreground">
-                Got a room code from your host? Enter it below.
-              </p>
+            <div className="flex items-start gap-3.5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-[10px] border border-success/40 bg-success/15">
+                <Ticket className="size-[22px] text-success" />
+              </span>
+              <div className="space-y-1">
+                <h2 className="font-display text-lg font-bold">Join a Game</h2>
+                <p className="text-sm text-muted-foreground">
+                  Got a room code from your host? Enter it below.
+                </p>
+              </div>
             </div>
             <form onSubmit={handleJoin} className="flex flex-col gap-2 mt-auto">
               <Input
