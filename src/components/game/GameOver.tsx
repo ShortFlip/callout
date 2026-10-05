@@ -9,6 +9,7 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { useGameStore } from '@/stores/gameStore';
 import type { Room } from '@/types/game';
 import type { PresencePlayer } from '@/hooks/useRealtimeRoom';
+import { SECTION_LABEL } from '@/lib/label';
 
 interface GameOverProps {
   room: Room;
@@ -39,7 +40,7 @@ export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound }: 
 
         {/* Winner info */}
         <div className="space-y-3">
-          <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">
+          <p className={SECTION_LABEL}>
             Round {roundNumber} — Game Over
           </p>
           {winner ? (

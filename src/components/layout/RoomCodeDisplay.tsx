@@ -5,6 +5,7 @@ import { Check, Link as LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyLink } from '@/lib/utils/copy-link';
 import { Button } from '@/components/ui/button';
+import { SECTION_LABEL } from '@/lib/label';
 
 interface RoomCodeDisplayProps {
   code: string;
@@ -44,7 +45,7 @@ export function RoomCodeDisplay({ code, className }: RoomCodeDisplayProps) {
   return (
     <div className={cn('flex flex-col items-center gap-4', className)}>
       <div className="flex flex-col items-center gap-2">
-        <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">
+        <p className={SECTION_LABEL}>
           Room Code
         </p>
         <span

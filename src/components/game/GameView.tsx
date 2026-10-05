@@ -325,7 +325,7 @@ export function GameView({
             </div>
           )}
 
-          <span className="font-mono text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <span className="text-[14px] font-medium text-muted-foreground">
             Round {roundNumber}
           </span>
 
@@ -514,7 +514,7 @@ export function GameView({
 
           {isTraditional && (
             <div className="glass rounded-xl p-3 space-y-3">
-              <p className="font-display text-[13px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="font-display text-[14px] font-bold text-muted-foreground">
                 Called Items
               </p>
               <CalledItems />
@@ -525,7 +525,7 @@ export function GameView({
               only be competing with it for the same two seconds. */}
           {!hasWinners && (
             <div className="flex items-baseline justify-between px-0.5">
-              <p className="font-display text-[13px] font-bold uppercase tracking-[0.14em]">
+              <p className="font-display text-[14px] font-bold">
                 Everyone Else
               </p>
               <span className="text-[13px] font-medium text-muted-foreground">

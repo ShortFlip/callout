@@ -117,7 +117,7 @@ export function GameLobby({
         {/* Room code */}
         <div className="text-center space-y-1">
           {room.name && (
-            <p className="text-muted-foreground text-sm uppercase tracking-widest">{room.name}</p>
+            <p className="text-[15px] font-medium text-muted-foreground">{room.name}</p>
           )}
           <RoomCodeDisplay code={room.join_code} />
         </div>
@@ -159,8 +159,10 @@ export function GameLobby({
               )}
             </>
           ) : (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
+            // A breathing dot rather than a spinner: nothing is loading, the
+            // room is just live and waiting on a person (design rule 61).
+            <div className="flex items-center gap-2 text-muted-foreground" role="status">
+              <span className="size-2 rounded-full bg-success animate-pulse motion-reduce:animate-none" aria-hidden />
               <span className="text-sm">Waiting for the host to start…</span>
             </div>
           )}

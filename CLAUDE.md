@@ -284,6 +284,10 @@ a Cloudflare tunnel was dropped in favour of Workers.
 - **Unit tests (in place, gate every PR):** `npm test` runs Vitest over card
   generation and shuffling, game setup, win detection and `bestLine`, the call
   list, the import parser and the keepalive ping.
+- **Screenshots without his live data:** `npm run dev:mock` serves the app on
+  :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
+  room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
+  it; a plain `npm run dev` signs in anonymously against the LIVE project.
 - **Live gates (in place, not in CI):** each phase is proved against two real
   browser contexts via `.playwright-mcp/pw.cjs` (a CDP driver) pointed at the dev
   server, printing `GATE <name>: PASS/FAIL` lines.
@@ -309,6 +313,7 @@ Read the file before changing the code it names. Each keeps the original text ve
 - A win is whatever the claimant's tab detects; no Edge Function, RLS open, and that must change before outsiders join — docs/decisions/0002-client-side-win-verification.md
 - Every room keeps a `template_id` (unsaved cards are `saved = false` rows; Remove unsaves, never deletes); owner-only writes check the returned row count; after regenerating types, re-mark `players.Insert.claim_code` optional — docs/decisions/0003-item-library.md
 - The card is a list he fills: new cards start empty, Add never evicts, Fill Empty is the only random step, and nothing else moves a square — docs/decisions/0004-card-is-a-list-he-fills.md
+- Design audit rulings: captions are Title Case via SECTION_LABEL, radius caps at 10 (panels 10, cards 8, controls 6), loading lists use SkeletonRows and spinners live only in their button — docs/decisions/0005-design-audit-2026-10-04.md
 
 ### Plans
 

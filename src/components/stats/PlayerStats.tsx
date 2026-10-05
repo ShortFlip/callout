@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { computeAchievements, formatTime, formatPattern } from '@/lib/achievements';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { isScoredRound } from '@/lib/game/stats';
 import type { Achievement } from '@/lib/achievements';
+import { SECTION_LABEL } from '@/lib/label';
+import { SkeletonRows } from '@/components/ui/skeleton-rows';
 
 interface StatsData {
   totalGames: number;
@@ -83,10 +84,12 @@ export function PlayerStats({ playerId, displayName, avatarUrl, compact }: Playe
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        Loading Stats…
-      </div>
+      <SkeletonRows
+        count={compact ? 5 : 6}
+        label="Loading stats"
+        className="grid grid-cols-3 gap-2 space-y-0"
+        rowClassName="h-[60px]"
+      />
     );
   }
 
@@ -157,7 +160,7 @@ export function PlayerStats({ playerId, displayName, avatarUrl, compact }: Playe
 
       {/* Badges */}
       <div>
-        <p className="text-[13px] text-muted-foreground mb-2 uppercase tracking-widest">Badges</p>
+        <p className={`${SECTION_LABEL} mb-2`}>Badges</p>
         <div className="flex flex-wrap gap-2">
           {stats.achievements.map((badge) => (
             <BadgePip key={badge.id} badge={badge} />
@@ -182,7 +185,7 @@ function StatPill({
       <p className={`font-display font-bold text-lg ${highlight ? 'text-primary' : 'text-foreground'}`}>
         {value}
       </p>
-      <p className="text-[13px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-[13px] text-muted-foreground">{label}</p>
     </div>
   );
 }

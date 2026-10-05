@@ -205,7 +205,8 @@ by measurement, below the table.
 | Win headline | Display, 800 | 38 |
 | Player name (hero) | Display, 700 | 20 |
 | Player name (rail) | Display, 700 | 17 |
-| Wordmark, rail and panel labels | Display, 700–800 | 13–15 |
+| Wordmark, rail and panel labels | Display, 700–800, Title Case | 14–15 |
+| Section labels (`SECTION_LABEL` in `src/lib/label.ts`) | Body, 600, Title Case, normal tracking | 14 |
 | Room code | Mono, 700, `0.14em` | 26 |
 | My score `N / 25` | Mono, 700 | 15 |
 | Rail score `N / 25` | Mono, 700 | 13 |
@@ -226,8 +227,8 @@ is monospace, so digits line up down the rail.
 
 | Radius | Where |
 |---|---|
-| 16 (`rounded-2xl`) | Panels, the rail cards' parent, the win banner |
-| 12 (`rounded-xl`) | Rail cards, the banner's trophy tile |
+| 10 (`rounded-2xl`) | Panels, the rail cards' parent, the win banner |
+| 8 (`rounded-xl`, `rounded-lg`) | Rail cards, Home cards, the banner's trophy tile |
 | 6 | Board squares, the miniature's frame |
 | 2 | Miniature tiles |
 | 999 (`rounded-full`) | Every pill, and avatars |

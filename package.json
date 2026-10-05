@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:mock": "node scripts/mock-supabase/dev.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
