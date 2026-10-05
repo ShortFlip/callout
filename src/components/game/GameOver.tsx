@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
-import { useGameStore } from '@/stores/gameStore';
+import { useGameStore, type GameWinner } from '@/stores/gameStore';
 import type { Room } from '@/types/game';
 import type { PresencePlayer } from '@/hooks/useRealtimeRoom';
 import { SECTION_LABEL } from '@/lib/label';
@@ -16,11 +16,17 @@ interface GameOverProps {
   currentPlayerId: string;
   presentPlayers: PresencePlayer[];
   onNewRound?: () => Promise<void>;
+  // The last round as read from the database, for a cold load where the store
+  // was never filled. The store wins when it has a round (this tab was there).
+  finishedRound?: { roundNumber: number; winners: GameWinner[] } | null;
 }
 
-export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound }: GameOverProps) {
+export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound, finishedRound }: GameOverProps) {
   const router = useRouter();
-  const { winners, roundNumber } = useGameStore();
+  const store = useGameStore();
+  const fromStore = store.roundNumber > 0;
+  const roundNumber = fromStore ? store.roundNumber : finishedRound?.roundNumber;
+  const winners = fromStore ? store.winners : finishedRound?.winners ?? [];
   const isHost = currentPlayerId === room.host_id;
   const winner = winners[0];
 
@@ -41,7 +47,8 @@ export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound }: 
         {/* Winner info */}
         <div className="space-y-3">
           <p className={SECTION_LABEL}>
-            Round {roundNumber} — Game Over
+            {/* No round number until the read lands, rather than "Round 0". */}
+            {roundNumber ? `Round ${roundNumber} — Game Over` : 'Game Over'}
           </p>
           {winner ? (
             <div className="space-y-3">
