@@ -34,10 +34,10 @@ scripts/mock-supabase/), so no screenshot run can reach his live project.
 | 2 | Radius cap: panels 10, cards 8, controls 6 (audit 3) | Tweak | 1 | Shipped (batch 1) |
 | 3 | Swap dialog 11–12px uppercase headers → 13px Title Case (audit 2) | Tweak | 1 | Shipped (batch 1) |
 | 4 | Detached spinners → skeletons / progress on the control (audit 4) | Tweak | 1 | Shipped (batch 1) |
-| 5 | 2px gutter misalignment on Home (audit 6) | Tweak | 2 | Open |
-| 6 | Status lines as sentences: "Profile saved.", "Loading your cards…" (audit 7) | Tweak | 2 | Open |
-| 7 | Undo on removing a saved card (audit 8) | Tweak | 2 | Open |
-| 8 | "cancelled" → "canceled" (audit 9) | Tweak | 2 | Open |
+| 5 | 2px gutter misalignment on Home (audit 6) | Tweak | 2 | Shipped (batch 2) |
+| 6 | Status lines as sentences: "Profile saved.", "Loading your cards…" (audit 7) | Tweak | 2 | Shipped (batch 2) |
+| 7 | Undo on removing a saved card (audit 8) | Tweak | 2 | Shipped (batch 2) |
+| 8 | "cancelled" → "canceled" (audit 9) | Tweak | 2 | Shipped (batch 2) |
 | 9 | Raw `error.message` toast in Library → friendly fallback (audit 11) | Tweak | 3 | Open |
 | 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Open |
 | 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Open |

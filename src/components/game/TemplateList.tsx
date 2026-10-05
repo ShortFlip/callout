@@ -5,11 +5,10 @@ import { toast } from 'sonner';
 import { BookmarkMinus, Library, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { usePlayer } from '@/hooks/usePlayer';
-import { LibraryError, loadSavedCards, unsaveCard } from '@/lib/library/api';
+import { LibraryError, loadSavedCards, restoreCard, unsaveCard } from '@/lib/library/api';
 import { cardSplit } from '@/lib/library/hosting';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { CardSplitWords } from '@/components/library/CardSplitWords';
-import { ConfirmDialog } from '@/components/library/TagDialogs';
 import type { CardTemplate } from '@/types/card';
 import { SkeletonRows } from '@/components/ui/skeleton-rows';
 
@@ -31,9 +30,6 @@ export function TemplateList() {
   const { player } = usePlayer();
   const [cards, setCards] = useState<CardTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Kept after the dialog closes so its title does not blank out mid fade.
-  const [removeTarget, setRemoveTarget] = useState<CardTemplate | null>(null);
-  const [removeOpen, setRemoveOpen] = useState(false);
 
   useEffect(() => {
     if (!player) return;
@@ -53,13 +49,34 @@ export function TemplateList() {
     };
   }, [player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Remove acts at once and offers Undo, the way Gmail does, instead of asking
+  // first (design rule 77, 2026-10-04 audit). Nothing is lost either way:
+  // Remove only sets saved = false, so Undo flips it back.
   async function remove(card: CardTemplate) {
+    const index = cards.findIndex((c) => c.id === card.id);
     try {
       await unsaveCard(card.id, card.name);
       setCards((prev) => prev.filter((c) => c.id !== card.id));
-      toast.success(`Removed “${card.name}” from Saved Cards`);
+      toast.success(`Removed “${card.name}” from Saved Cards.`, {
+        action: { label: 'Undo', onClick: () => void undoRemove(card, index) },
+      });
     } catch (error) {
       toast.error(error instanceof LibraryError ? error.message : `Could not remove “${card.name}”.`);
+    }
+  }
+
+  async function undoRemove(card: CardTemplate, index: number) {
+    try {
+      await restoreCard(card.id, card.name);
+      // Back where it was, not at the end, so the grid looks as it did.
+      setCards((prev) => {
+        if (prev.some((c) => c.id === card.id)) return prev;
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, card);
+        return next;
+      });
+    } catch (error) {
+      toast.error(error instanceof LibraryError ? error.message : `Could not bring back “${card.name}”.`);
     }
   }
 
@@ -75,7 +92,7 @@ export function TemplateList() {
       <SkeletonRows
         count={4}
         label="Loading your cards"
-        className="grid grid-cols-2 gap-3 space-y-0"
+        className="grid grid-cols-2 gap-4 space-y-0"
         rowClassName="h-[120px] rounded-xl"
       />
     );
@@ -98,7 +115,7 @@ export function TemplateList() {
           {openLibrary}
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-3">
+        <ul className="grid grid-cols-2 gap-4">
           {cards.map((card) => (
             <li
               key={card.id}
@@ -127,7 +144,7 @@ export function TemplateList() {
                 <Button
                   variant="outline"
                   className={`${BTN} text-destructive hover:border-destructive hover:text-destructive active:bg-destructive/15`}
-                  onClick={() => { setRemoveTarget(card); setRemoveOpen(true); }}
+                  onClick={() => void remove(card)}
                 >
                   <BookmarkMinus strokeWidth={1.75} />
                   Remove
@@ -138,15 +155,6 @@ export function TemplateList() {
         </ul>
       )}
 
-      <ConfirmDialog
-        open={removeOpen}
-        onOpenChange={setRemoveOpen}
-        title={`Remove “${removeTarget?.name ?? ''}” from Saved Cards?`}
-        body="Past nights keep it."
-        confirmLabel="Remove"
-        destructive
-        onConfirm={async () => { if (removeTarget) await remove(removeTarget); }}
-      />
     </div>
   );
 }

@@ -190,7 +190,7 @@ function HomePageContent() {
             History (the app accent), gold for Leaderboard (the win metal). The
             `!` on the hover border is needed because `.glass` is unlayered CSS
             and would otherwise beat the utility. */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <Link
             href="/history"
             className="glass glass-tile group flex items-center gap-3.5 rounded-xl px-4 py-3.5 transition-colors duration-150 hover:border-primary/45! focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
