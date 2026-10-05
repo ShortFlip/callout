@@ -140,7 +140,7 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
             Swap
             {drop && <Mark side={drop} />}
             {drop?.name}
-            <ArrowRight className="size-4 opacity-60" strokeWidth={2} />
+            <ArrowRight className="size-4 opacity-60" />
             {target && <Mark side={target} />}
             {target?.name}
           </DialogTitle>
@@ -204,7 +204,7 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
                     >
                       {drop && <Mark side={drop} />}
                       <span className="min-w-0 flex-1 truncate">{itemLabel(item)}</span>
-                      <ArrowRight className="size-3.5 shrink-0 opacity-50" strokeWidth={2} />
+                      <ArrowRight className="size-3.5 shrink-0 opacity-50" />
                       <span
                         className={cn(
                           'min-w-0 flex-1 truncate',
@@ -287,7 +287,7 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
             onClick={() => plan && setPicks(plan.suggested.map(swapItemKey))}
             data-testid="swap-pick-for-me"
           >
-            <Shuffle className="size-3.5" strokeWidth={2} />
+            <Shuffle className="size-3.5" />
             Pick For Me
           </Button>
           <div className="flex gap-2">

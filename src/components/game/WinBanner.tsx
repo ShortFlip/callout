@@ -82,7 +82,7 @@ export function WinBanner({
           className={cn(PILL, 'text-background')}
           style={{ backgroundColor: 'var(--gold)' }}
         >
-          1ST — {first.displayName.toUpperCase()}
+          1st — {first.displayName}
         </span>
 
         {second ? (
@@ -93,14 +93,14 @@ export function WinBanner({
               border: '1px solid color-mix(in oklab, var(--gold) 60%, transparent)',
             }}
           >
-            2ND — {second.displayName.toUpperCase()}
+            2nd — {second.displayName}
           </span>
         ) : (
           <span
             className={cn(PILL, 'text-muted-foreground')}
             style={{ border: '1px solid rgba(255,255,255,0.14)' }}
           >
-            2ND — OPEN
+            2nd — Open
           </span>
         )}
 

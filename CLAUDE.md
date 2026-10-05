@@ -50,12 +50,12 @@ Think neon-lit bowling alley meets modern game night — playful but polished. N
 - **Grid lines:** `#2d2d3a` default, customizable per card template
 
 ### Typography
-- **Display/Headers:** A bold, characterful font (e.g., Outfit, Clash Display, or Satoshi) — NOT Inter, NOT Roboto
-- **Body/UI:** A clean geometric sans (e.g., General Sans, Plus Jakarta Sans)
-- **Monospace (codes/stats):** JetBrains Mono
+- **Display/Headers:** Outfit — bold and characterful; NOT Inter, NOT Roboto
+- **Body/UI:** Plus Jakarta Sans; numbers use `tabular-nums`, never mono
+- **Monospace (codes only):** JetBrains Mono, for the room and claim codes read aloud or typed (O/0, I/1)
 
 ### Key Visual Elements
-- Squares glow subtly when marked (box-shadow pulse)
+- Squares glow subtly when marked (a 150ms dab, then a steady glow; no pulse — the bingo banner is the one loud moment)
 - Winner gets a confetti cannon animation + board highlight
 - Caller panel has a "now calling" card flip animation
 - Room code displayed large and bold — easy to read aloud over a call
@@ -132,10 +132,11 @@ squares/
 │   │   ├── board/
 │   │   │   ├── BingoBoard.tsx        # The NxN grid — marking, hot lane, called wash
 │   │   │   ├── BingoSquare.tsx       # One square — text, image, marked/called state
-│   │   │   └── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
+│   │   │   ├── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
+│   │   │   └── CardPreview.tsx       # A saved card's tiles in game colours (Home, Lobby)
 │   │   ├── game/
 │   │   │   ├── RoomClient.tsx        # Room state machine + all Supabase writes
-│   │   │   ├── GameLobby.tsx         # Pre-game waiting room
+│   │   │   ├── GameLobby.tsx         # Pre-game room — code, crew seats, card, rules
 │   │   │   ├── GameView.tsx          # The Scoreboard screen: header, hero board, rail
 │   │   │   ├── RailCard.tsx          # One other player in the rail — mini + progress
 │   │   │   ├── WinBanner.tsx         # In-flow gold win band (never an overlay)
@@ -143,7 +144,6 @@ squares/
 │   │   │   ├── GameOver.tsx          # Night over — Play Again (host) or waiting copy
 │   │   │   ├── CallerPanel.tsx       # Traditional mode only — call list, next button
 │   │   │   ├── CalledItems.tsx       # Traditional mode only — call history
-│   │   │   ├── PlayerList.tsx        # Lobby roster
 │   │   │   ├── CreateRoomDialog.tsx  # Name + template + settings
 │   │   │   ├── TemplateList.tsx      # Saved templates on the landing page
 │   │   │   ├── DisplayNameDialog.tsx # First-visit name prompt

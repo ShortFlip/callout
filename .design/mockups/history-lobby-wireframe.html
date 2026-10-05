@@ -1,0 +1,202 @@
+<!doctype html>
+<!-- Grey wireframes for the wider History and Lobby (audit item 5, after Home).
+     Structure only: no theme, fonts or colour. Each frame is exactly 1280x800
+     so "no scroll" is checked by eye. Numbered pins match the notes. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>History and Lobby wireframe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font: 13px/1.35 system-ui, sans-serif; color: #333; background: #ddd; }
+  .wrap { display: flex; gap: 24px; padding: 24px; align-items: flex-start; }
+  .frame { width: 1280px; height: 800px; background: #f4f4f4; padding: 56px 40px 28px; position: relative; overflow: hidden; flex-shrink: 0; }
+  .box { background: #fff; border: 1.5px solid #9a9a9a; border-radius: 8px; position: relative; }
+  .pin { position: absolute; top: -10px; left: -10px; width: 22px; height: 22px; border-radius: 50%; background: #333; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; z-index: 2; }
+  .muted { color: #777; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .av { width: 26px; height: 26px; border-radius: 50%; background: #bbb; flex-shrink: 0; }
+  .btn { border: 1.5px solid #777; border-radius: 6px; height: 36px; display: grid; place-items: center; font-weight: 600; background: #fff; }
+  .btn.primary { background: #555; color: #fff; border-color: #555; }
+  .title { font-size: 26px; font-weight: 800; }
+  .notes { width: 360px; background: #fff; border: 1px solid #bbb; border-radius: 8px; padding: 18px; }
+  .notes h3 { font-size: 14px; margin-bottom: 10px; }
+  .notes li { margin: 0 0 9px 18px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #ddd; }
+  .tag.gold { background: #bdbdbd; }
+
+  /* History */
+  .hist { display: grid; grid-template-columns: 330px 1fr; gap: 20px; height: 100%; }
+  .nights { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .night { border: 1.5px solid #ccc; border-radius: 8px; padding: 10px 12px; }
+  .night.sel { border: 3px solid #444; padding: 8.5px 10.5px; }
+  .detail { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .tabs { display: flex; gap: 6px; border-bottom: 1.5px solid #ccc; }
+  .tab { padding: 8px 14px; border-radius: 6px 6px 0 0; color: #777; font-weight: 600; }
+  .tab.sel { background: #eee; color: #222; border: 1.5px solid #ccc; border-bottom: none; }
+  .strip { display: flex; gap: 8px; align-items: center; }
+  .chip { display: flex; gap: 8px; align-items: center; border: 1.5px solid #ccc; border-radius: 99px; padding: 4px 12px 4px 4px; }
+  .chip.win { border: 2.5px solid #555; background: #eee; }
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 440px; height: 440px; margin: 0 auto; }
+  .sq { border: 1.5px solid #ccc; border-radius: 6px; display: grid; place-items: center; text-align: center; font-size: 11px; color: #666; padding: 4px; }
+  .sq.m { background: #c9c9c9; border-color: #888; }
+
+  /* Lobby */
+  .lob { display: grid; grid-template-columns: 400px 1fr; gap: 20px; height: 100%; }
+  .left { padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+  .code { font-family: monospace; font-size: 64px; font-weight: 800; letter-spacing: .14em; color: #444; }
+  .right { display: grid; grid-template-rows: auto 1fr; gap: 20px; }
+  .seats { padding: 20px; }
+  .seatgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 12px; }
+  .seat { border: 1.5px solid #888; border-radius: 8px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .seat .av { width: 48px; height: 48px; }
+  .seat.dim { border-style: dashed; border-color: #bbb; color: #aaa; }
+  .seat.dim .av { background: #e4e4e4; }
+  .lower { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .mini { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; width: 190px; height: 190px; background: #eee; padding: 6px; border-radius: 6px; }
+  .mini i { background: #c4c4c4; border-radius: 2px; }
+  .mini i.f { background: #777; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ───────────── History ───────────── -->
+<div class="wrap">
+<div class="frame">
+  <div class="hist">
+    <!-- 1 Nights list -->
+    <div class="box nights">
+      <span class="pin">1</span>
+      <div class="muted">← Home</div>
+      <div class="title">Game History</div>
+      <div class="night"><b>Game Night</b> <span class="muted">· Friday Squad Night</span><br><span class="muted">Mon Oct 5 · 1 round · No winner</span></div>
+      <div class="night"><b>Late Session</b> <span class="muted">· Chaos Mix</span><br><span class="muted">Mon Oct 5 · 1 round · Dan</span></div>
+      <div class="night sel"><b>Ranked Grind</b> <span class="muted">· Valorant Ranked</span><br><span class="muted">Sun Oct 4 · 2 rounds · Dan, Ryann</span></div>
+      <div class="night"><b>Friday Night Squares</b> <span class="muted">· Chaos Mix</span><br><span class="muted">Sat Oct 3 · 3 rounds · Jess, Ryann, Marco</span></div>
+      <div class="muted" style="margin-top:auto">Older nights scroll inside this list</div>
+    </div>
+
+    <!-- Detail pane -->
+    <div class="box detail">
+      <span class="pin">2</span>
+      <div class="row" style="justify-content:space-between">
+        <div><div class="title" style="font-size:22px">Ranked Grind</div><span class="muted">Valorant Ranked · Sun Oct 4 · 4 players</span></div>
+        <div class="row"><div class="av"></div><div class="av"></div><div class="av"></div><div class="av"></div></div>
+      </div>
+      <!-- 3 Round tabs -->
+      <div class="tabs" style="position:relative">
+        <span class="pin" style="left:-34px;top:4px">3</span>
+        <div class="tab sel">Round 1 · Dan</div>
+        <div class="tab">Round 2 · Ryann</div>
+      </div>
+      <!-- 4 Podium strip -->
+      <div class="strip" style="position:relative">
+        <span class="pin" style="left:-34px;top:6px">4</span>
+        <div class="chip win"><div class="av"></div><b>Dan</b><span class="tag gold">1st</span><span class="muted">Column · 10/16</span></div>
+        <div class="chip"><div class="av"></div>Jess <span class="muted">7/16</span></div>
+        <div class="chip"><div class="av"></div>Marco <span class="muted">7/16</span></div>
+        <div class="chip"><div class="av"></div>Ryann <span class="muted">7/16</span></div>
+      </div>
+      <!-- 5 Your card, centred -->
+      <div style="position:relative">
+        <span class="pin" style="left:150px;top:6px">5</span>
+        <div class="row" style="width:440px;margin:0 auto 6px;justify-content:space-between"><b>Your Card</b><span class="muted">◎ Valorant · ▭ Rocket League</span></div>
+        <div class="board" id="hb"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="notes">
+  <h3>History, 1280×800</h3>
+  <ol>
+    <li><b>Nights list</b>: always visible on the left, and clicking a night swaps the right side instead of expanding in place. The newest night opens by default, or the one a <code>?night=</code> link names (Game Over's Tonight's Results).</li>
+    <li><b>Night header</b>: name, card, date and who played.</li>
+    <li><b>Round tabs</b>: one round at a time, each tab named for its winner. A cancelled round reads "No winner".</li>
+    <li><b>Podium strip</b>: the winner in gold with pattern and score, then everyone else as compact chips on one line, which replaces the 4-row list.</li>
+    <li><b>Your card</b>: centred, at the same text size as today so words don't break.</li>
+  </ol>
+  <p class="muted">Fits without page scroll; only the nights list scrolls when there are many.</p>
+</div>
+</div>
+
+<!-- ───────────── Lobby ───────────── -->
+<div class="wrap">
+<div class="frame">
+  <div class="lob">
+    <!-- 6 Left: code, invite, start -->
+    <div class="box left">
+      <span class="pin">6</span>
+      <div class="muted">Tuesday Squad</div>
+      <div class="muted" style="margin-top:8px">Room Code</div>
+      <div class="code">QUEUE2</div>
+      <div class="btn primary" style="height:44px">Copy Invite Link</div>
+      <div class="muted">Paste the link in Discord, or read the code out.</div>
+      <div class="row muted">● Connected</div>
+      <div style="flex:1"></div>
+      <div class="btn primary" style="height:52px;font-size:16px">Start Game</div>
+      <div class="muted" style="text-align:center">3 of 4 here · waiting on Jess</div>
+    </div>
+
+    <div class="right">
+      <!-- 7 Seats -->
+      <div class="box seats">
+        <span class="pin">7</span>
+        <div class="row" style="justify-content:space-between"><b style="font-size:16px">Players</b><span class="muted">3 here</span></div>
+        <div class="seatgrid">
+          <div class="seat"><div class="av"></div><b>Ryann</b><span class="tag">Host</span></div>
+          <div class="seat"><div class="av"></div><b>Dan</b><span class="muted">Joined</span></div>
+          <div class="seat"><div class="av"></div><b>Marco</b><span class="muted">Joined</span></div>
+          <div class="seat dim"><div class="av"></div><b>Jess</b><span>Not here yet</span></div>
+          <div class="seat dim"><div class="av" style="background:none;border:1.5px dashed #bbb"></div><span>Open seat</span></div>
+        </div>
+      </div>
+
+      <div class="lower">
+        <!-- 8 Tonight's card -->
+        <div class="box" style="padding:20px">
+          <span class="pin">8</span>
+          <b style="font-size:16px">Tonight's Card</b>
+          <div class="row" style="margin-top:12px;align-items:flex-start;gap:16px">
+            <div class="mini" id="lm"></div>
+            <div><b>Friday Squad Night</b><br><span class="muted">5×5 · 12 Rocket League · 12 Call of Duty</span></div>
+          </div>
+        </div>
+        <!-- 9 Room settings -->
+        <div class="box" style="padding:20px">
+          <span class="pin">9</span>
+          <b style="font-size:16px">Rules</b>
+          <div class="kv">
+            <span class="muted">Mode</span><b>Honor System</b>
+            <span class="muted">Board</span><b>5×5 · Free center</b>
+            <span class="muted">Wins on</span><span><span class="tag">Row</span> <span class="tag">Column</span> <span class="tag">Diagonal</span></span>
+            <span class="muted">Play to</span><b>2 winners</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="notes">
+  <h3>Lobby, 1280×800</h3>
+  <ol start="6">
+    <li><b>Left column</b>: the room code stays big and readable aloud, with Copy Invite Link under it. Start sits at the bottom, with a line saying who you're still waiting on.</li>
+    <li><b>Seats</b>: your usual crew (everyone you've played with) as seats. They light up when someone joins and stay dimmed "Not here yet" otherwise. Anyone new who joins takes an open seat.</li>
+    <li><b>Tonight's Card</b>: the card as a miniature in its game colours, the same preview as Home.</li>
+    <li><b>Rules</b>: mode, board, win patterns, play-to. Read-only, so everyone knows the rules before Start.</li>
+  </ol>
+  <p class="muted">Players see the same layout without Start; their bottom line reads "Waiting for the host to start".</p>
+</div>
+</div>
+
+<script>
+  // Fill the boards so they read as boards.
+  const hb = document.getElementById('hb');
+  const words = ['Teammate locks duelist','Calls a bad play','Op one-tap','Overtime ranked game','Thrifty round','Flashes own team','Eco win','Spike defuse at 0.1','Whiffed open net','Controller disconnects','Ace round','Someone rage quits','Ult on the wrong site','Ninja defuse','Reverse boost fail','Forfeit vote'];
+  const marked = [0,1,6,10,12,14,15];
+  words.forEach((w, i) => { const d = document.createElement('div'); d.className = 'sq' + (marked.includes(i) ? ' m' : ''); d.textContent = w; hb.appendChild(d); });
+  const lm = document.getElementById('lm');
+  for (let i = 0; i < 25; i++) { const t = document.createElement('i'); if (i === 12) t.className = 'f'; lm.appendChild(t); }
+</script>
+</body>
+</html>

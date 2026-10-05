@@ -69,8 +69,8 @@ export function RoomCodeDisplay({ code, className }: RoomCodeDisplayProps) {
         )}
       >
         {copied
-          ? <Check className="size-[18px]" strokeWidth={2} />
-          : <LinkIcon className="size-[18px]" strokeWidth={2} />}
+          ? <Check className="size-[18px]" />
+          : <LinkIcon className="size-[18px]" />}
         {copied ? 'Link Copied' : 'Copy Invite Link'}
       </Button>
 

@@ -171,12 +171,12 @@ export function ItemsPane() {
             >
               <GameGlyph game={g} size={14} />
               {g.name}
-              <span className="font-mono text-muted-foreground">{gameCounts.get(g.id) ?? 0}</span>
+              <span className="tabular-nums text-muted-foreground">{gameCounts.get(g.id) ?? 0}</span>
             </button>
           ))}
           <button type="button" aria-pressed={filter === 'none'} className={chipClass(filter === 'none')} onClick={() => setFilter('none')}>
             No Game
-            <span className="font-mono text-muted-foreground">{untagged}</span>
+            <span className="tabular-nums text-muted-foreground">{untagged}</span>
           </button>
 
           {shownTags.length > 0 && <span aria-hidden className="w-2" />}
@@ -239,7 +239,7 @@ export function ItemsPane() {
           {selectedIds.length > 0 ? (
             <div className="flex min-w-0 flex-1 items-center gap-1.5" data-testid="bulk-bar">
               <span className="shrink-0 text-sm font-medium">
-                <span className="font-mono">{selectedIds.length}</span> Selected
+                <span className="tabular-nums">{selectedIds.length}</span> Selected
               </span>
               <div className="flex-1" />
               <PickMenu
@@ -297,9 +297,9 @@ export function ItemsPane() {
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <p className="text-[13px] text-muted-foreground" data-testid="item-count">
                 {visible.length === items.length ? (
-                  <><span className="font-mono text-foreground">{items.length}</span> {items.length === 1 ? 'Item' : 'Items'}</>
+                  <><span className="tabular-nums text-foreground">{items.length}</span> {items.length === 1 ? 'Item' : 'Items'}</>
                 ) : (
-                  <><span className="font-mono text-foreground">{visible.length}</span> of <span className="font-mono text-foreground">{items.length}</span> Items</>
+                  <><span className="tabular-nums text-foreground">{visible.length}</span> of <span className="tabular-nums text-foreground">{items.length}</span> Items</>
                 )}
               </p>
               <div className="flex-1" />

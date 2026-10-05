@@ -428,11 +428,11 @@ export function GameView({
                   className={cn(PILL, 'shrink-0 text-background')}
                   style={{ backgroundColor: 'var(--gold)' }}
                 >
-                  {myPlacing === 2 ? '2ND' : '1ST'}
+                  {myPlacing === 2 ? '2nd' : '1st'}
                 </span>
               ) : legendGames.length > 0 ? null : (
                 <span className={cn(PILL, 'shrink-0 bg-primary/15 text-primary border border-primary/30')}>
-                  YOUR BOARD
+                  Your Board
                 </span>
               )}
             </div>
@@ -452,7 +452,7 @@ export function GameView({
               >
                 {myLineLabel}
               </span>
-              <span className="font-mono text-[15px] font-bold">
+              <span className="tabular-nums text-[15px] font-bold">
                 {marks.length} / {totalSquares}
               </span>
             </div>
@@ -488,8 +488,8 @@ export function GameView({
               squareClassName={cn(
                 'rounded-[6px] font-medium',
                 hasWinners || size >= 6
-                  ? 'text-[clamp(10px,12cqw,11px)]'
-                  : 'text-[clamp(10px,13cqw,12px)]',
+                  ? 'text-[clamp(11px,12cqw,11px)]'
+                  : 'text-[clamp(11px,13cqw,12px)]',
               )}
             />
           </div>

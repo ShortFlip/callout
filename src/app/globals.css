@@ -280,15 +280,23 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* One icon stroke app-wide (design rule 58, 2026-10-04 audit): 46 icons
+     were at 1.75, 9 at 2 and every lucide icon without a prop at the default 2.
+     CSS beats the strokeWidth attribute, so this holds whatever a caller sets. */
+  svg.lucide {
+    stroke-width: 1.75;
+  }
   body {
     @apply bg-background text-foreground;
-    /* Faint violet vignette bleeding down from the top — gives the flat
-       charcoal ground some depth without touching text contrast (it sits
-       in the background paint, not an overlay). */
+    /* Violet vignette bleeding down from the top — gives the charcoal ground
+       depth without touching text contrast (it sits in the background paint,
+       not an overlay). 22%, up from 14% after the 2026-10-04 audit: at 14% the
+       ground read as near-black, which his rule 14 rules out; the ellipse also
+       grew (was 120% 70% at -20%, fading by 60%) so the lift reaches mid-page. */
     background-image: radial-gradient(
-      120% 70% at 50% -20%,
-      color-mix(in oklab, var(--primary) 14%, transparent) 0%,
-      transparent 60%
+      140% 95% at 50% -15%,
+      color-mix(in oklab, var(--primary) 22%, transparent) 0%,
+      transparent 75%
     );
     background-attachment: fixed;
   }
@@ -320,28 +328,12 @@
   100% { transform: scale(1); }
 }
 
-/* Amber breathing glow. 0%/100% is the RESTING glow so it lines up exactly
-   with the static box-shadow that takes over once the animation finishes —
-   no visible jump when it settles. --sq-glow is overridden inline when a
-   card template supplies a custom marked color. */
-@keyframes sq-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 0 2px var(--sq-glow, oklch(0.77 0.175 70)),
-      0 0 14px color-mix(in oklab, var(--sq-glow, oklch(0.77 0.175 70)) 35%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px var(--sq-glow, oklch(0.77 0.175 70)),
-      0 0 26px color-mix(in oklab, var(--sq-glow, oklch(0.77 0.175 70)) 70%, transparent);
-  }
-}
-
 .sq-marked {
-  /* 150ms dab, then three 2s breaths that settle back to the resting glow. */
-  animation:
-    sq-dab 150ms ease-out,
-    sq-pulse 2s ease-in-out 150ms 3;
+  /* The 150ms dab only. The three 2s glow breaths that followed were cut
+     after the 2026-10-04 audit: with several marks in a row the board kept
+     pulsing, a second loud moment beside the bingo banner, which is meant to
+     be the only one. The static resting glow on the square is unchanged. */
+  animation: sq-dab 150ms ease-out;
 }
 
 /* Free space gets its own identity: a static violet bloom, never pulsing —

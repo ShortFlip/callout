@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { GameLobby } from './GameLobby';
 import { GameView } from './GameView';
@@ -10,7 +10,7 @@ import { GameSkeleton } from './GameSkeleton';
 import { BoardSkeleton } from '@/components/board/BoardSkeleton';
 import { useRealtimeRoom } from '@/hooks/useRealtimeRoom';
 import { usePlayer } from '@/hooks/usePlayer';
-import { useGameStore } from '@/stores/gameStore';
+import { useGameStore, type GameWinner } from '@/stores/gameStore';
 import { createClient } from '@/lib/supabase/client';
 import { generateCard } from '@/lib/game/shuffle';
 import { buildGameSetup } from '@/lib/game/game-setup';
@@ -26,7 +26,7 @@ import { shouldRetractWin } from '@/lib/game/retract';
 import { withRetry, RETRY_DELAYS_MS } from '@/lib/utils/retry';
 import { resolveRestoredCard, computeBingoTimeMs } from '@/lib/game/restore';
 import type { Json, Tables } from '@/lib/supabase/types';
-import type { Room, GameStartedPayload } from '@/types/game';
+import type { Room, WinPattern, GameStartedPayload } from '@/types/game';
 import type { SquareItem } from '@/types/card';
 
 interface RoomClientProps {
@@ -122,6 +122,54 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       router.refresh();
     }
   }, [gameId, initialRoom.status, router]);
+
+  // A finished room never runs the round restore (that is for rooms still
+  // playing), so after a refresh the store is empty and Game Over read
+  // "Round 0" with no winner. Read the last round and its winners into local
+  // state, NOT the store: a gameId in the store on a non-playing room trips
+  // the router.refresh effect above.
+  const [finishedRound, setFinishedRound] = useState<{ roundNumber: number; winners: GameWinner[] } | null>(null);
+  useEffect(() => {
+    if (initialRoom.status !== 'finished' || useGameStore.getState().gameId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        // Latest by started_at, same as restoreLatestRound: round_number is not
+        // unique in older data.
+        const { data: game, error: gameError } = await supabase
+          .from('games')
+          .select('id, round_number, win_pattern')
+          .eq('room_id', initialRoom.id)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (gameError) throw gameError;
+        if (!game || cancelled) return;
+        const { data: rows, error: rowsError } = await supabase
+          .from('game_players')
+          .select('player_id, finish_position, players!game_players_player_id_fkey(display_name)')
+          .eq('game_id', game.id)
+          .eq('won', true);
+        if (rowsError) throw rowsError;
+        if (cancelled) return;
+        const winners = (rows ?? [])
+          .sort((a, b) => (a.finish_position ?? Infinity) - (b.finish_position ?? Infinity))
+          .map((row) => ({
+            playerId: row.player_id,
+            displayName: (row.players as { display_name: string } | null)?.display_name ?? 'Player',
+            // Only the first winner's pattern is stored on the game.
+            pattern: (game.win_pattern as WinPattern | null) ?? 'row',
+            finishPosition: row.finish_position ?? undefined,
+          }));
+        setFinishedRound({ roundNumber: game.round_number, winners });
+      } catch (err) {
+        console.error('Failed to read the last round:', err);
+        toast.error("Couldn't load the last round's result.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initialRoom.status, initialRoom.id]);
 
   // Guards restoreLatestRound: the mount effect, a games INSERT and a regained
   // SUBSCRIBED can all ask for it within a second of each other. A request
@@ -911,6 +959,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
         room={initialRoom}
         currentPlayerId={player.id}
         presentPlayers={presentPlayers}
+        finishedRound={finishedRound}
         // Host can restart from the finished state; GameOver hides the button
         // for non-hosts and shows a "waiting for the host" line instead.
         onNewRound={handleNewRound}

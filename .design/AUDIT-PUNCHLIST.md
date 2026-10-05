@@ -34,16 +34,16 @@ scripts/mock-supabase/), so no screenshot run can reach his live project.
 | 2 | Radius cap: panels 10, cards 8, controls 6 (audit 3) | Tweak | 1 | Shipped (batch 1) |
 | 3 | Swap dialog 11–12px uppercase headers → 13px Title Case (audit 2) | Tweak | 1 | Shipped (batch 1) |
 | 4 | Detached spinners → skeletons / progress on the control (audit 4) | Tweak | 1 | Shipped (batch 1) |
-| 5 | 2px gutter misalignment on Home (audit 6) | Tweak | 2 | Open |
-| 6 | Status lines as sentences: "Profile saved.", "Loading your cards…" (audit 7) | Tweak | 2 | Open |
-| 7 | Undo on removing a saved card (audit 8) | Tweak | 2 | Open |
-| 8 | "cancelled" → "canceled" (audit 9) | Tweak | 2 | Open |
-| 9 | Raw `error.message` toast in Library → friendly fallback (audit 11) | Tweak | 3 | Open |
-| 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Open |
-| 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Open |
-| 12 | CLAUDE.md fonts: drop Clash Display and Satoshi | Tweak | 3 | Open |
-| 13 | Square text floor 10 → 11px | Tweak | 4 | Open |
-| 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Open |
-| 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Open |
-| 16 | Latte: white game logos visible; drop "nobody plays on Latte" | Tweak | 4 | Open |
-| 17 | Wider layout for Home, History, Leaderboard, Lobby (audit 5) | Feature | — | Grey wireframe first, then wait for go |
+| 5 | 2px gutter misalignment on Home (audit 6) | Tweak | 2 | Shipped (batch 2) |
+| 6 | Status lines as sentences: "Profile saved.", "Loading your cards…" (audit 7) | Tweak | 2 | Shipped (batch 2) |
+| 7 | Undo on removing a saved card (audit 8) | Tweak | 2 | Shipped (batch 2) |
+| 8 | "cancelled" → "canceled" (audit 9) | Tweak | 2 | Shipped (batch 2) |
+| 9 | Raw `error.message` toast in Library → friendly fallback (audit 11) | Tweak | 3 | Shipped (batch 3) |
+| 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Shipped (batch 3) |
+| 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Shipped (batch 3) |
+| 12 | CLAUDE.md fonts: drop Clash Display and Satoshi | Tweak | 3 | Shipped (batch 3) |
+| 13 | Square text floor 10 → 11px | Tweak | 4 | Shipped (batch 4) |
+| 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Shipped (batch 4) |
+| 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Shipped (batch 4) |
+| 16 | Latte: white game logos visible; drop "nobody plays on Latte" | Tweak | 4 | Shipped (batch 4) |
+| 17 | Wider layout for Home, History, Leaderboard, Lobby (audit 5) | Feature | — | Next session, Home first; grey wireframe, then wait for go |

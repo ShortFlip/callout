@@ -40,7 +40,7 @@ export function HeatMeter({ heat, className }: HeatMeterProps) {
               style={{ width: `${Math.max(4, rate * 100)}%`, background: heatColor(rate) }}
             />
           </span>
-          <span className="w-9 text-right font-mono text-[13px]" style={{ color: heatColor(rate) }}>
+          <span className="w-9 text-right tabular-nums text-[13px]" style={{ color: heatColor(rate) }}>
             {Math.round(rate * 100)}%
           </span>
         </>

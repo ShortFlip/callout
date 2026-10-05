@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLeaderboard, isScoredRound, type LeaderboardRecord } from '../stats';
+import { buildLeaderboard, isScoredRound, lastNight, type LeaderboardRecord } from '../stats';
 
 const rec = (
   playerId: string,
@@ -57,5 +57,34 @@ describe('buildLeaderboard', () => {
     expect(rows.map((r) => r.playerId)).toEqual(['b', 'a', 'c', 'd']);
     expect(rows[0].bestTimeMs).toBe(80_000);
     expect(rows[1].winRate).toBe(67);
+  });
+});
+
+describe('lastNight', () => {
+  // One row per player per round: room, round id, start time.
+  const row = (playerId: string, won: boolean, roomId: string, gameId: string, startedAt: string, status = 'won') =>
+    ({ ...rec(playerId, status, won), roomId, gameId, startedAt });
+
+  it('picks the latest room and its top winner, counting only won rounds', () => {
+    const night = lastNight([
+      row('a', true, 'old', 'g1', '2026-10-01T20:00:00Z'),
+      row('b', false, 'old', 'g1', '2026-10-01T20:00:00Z'),
+      row('a', true, 'new', 'g2', '2026-10-03T20:00:00Z'),
+      row('b', false, 'new', 'g2', '2026-10-03T20:00:00Z'),
+      row('a', false, 'new', 'g3', '2026-10-03T20:30:00Z'),
+      row('b', true, 'new', 'g3', '2026-10-03T20:30:00Z'),
+      row('b', true, 'new', 'g4', '2026-10-03T21:00:00Z'),
+      // A cancelled last round neither counts nor moves the date.
+      row('a', false, 'new', 'g5', '2026-10-03T22:00:00Z', 'cancelled'),
+    ]);
+    expect(night?.roomId).toBe('new');
+    expect(night?.rounds).toBe(3);
+    expect(night?.winner?.playerId).toBe('b');
+    expect(night?.winner?.wins).toBe(2);
+    expect(night?.startedAt).toBe('2026-10-03T21:00:00Z');
+  });
+
+  it('is null with no won rounds at all', () => {
+    expect(lastNight([row('a', false, 'r', 'g', '2026-10-03T20:00:00Z', 'cancelled')])).toBeNull();
   });
 });
