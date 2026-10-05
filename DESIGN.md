@@ -212,9 +212,9 @@ by measurement, below the table.
 | Rail score `N / 25` | Body, 700, tabular figures | 13 |
 | Pills — `Live`, `Your Board`, `1st`/`2nd`, `1st — Name`, `2nd — Open`, `Syncing`, History's placing; `Reconnecting` and `Offline` in the same type without the box | Body, 700, Title Case, tabular figures, line height 1, padding 3 × 8 (`PILL` in `src/lib/pill.ts`) | 13 |
 | Body, status lines, buttons, labels, captions, table text, chips, avatar initials | Body, 500–600 | 13 minimum |
-| Square text *(exempt: fitted)* | Body, 500, line height 1.25 | 12, 11 under the banner or on 6×6, easing to 10 on small squares |
+| Square text *(exempt: fitted)* | Body, 500, line height 1.25 | 12, 11 under the banner, on 6×6 and on small squares (floor 11, 2026-10-05) |
 
-Square text is sized by measurement (`clamp(10px, 12–13cqw, 11–12px)` against
+Square text is sized by measurement (`clamp(11px, 12–13cqw, 11–12px)` against
 the square's own width), so it is the one exemption from the floor, with the
 `FREE` label inside the free square and the text-less miniature tiles. Its line
 height is 1.25, set on the text itself in BingoSquare, because a caller's
@@ -365,7 +365,9 @@ One line each, dated, so they are not relitigated.
   one-colour white marks (the MW wordmark, the Rocket League car) because
   they "don't detract from the square itself". Rejected: full-colour box-art
   icons (mush at 16px) and the coloured shield/badge emblems. White marks
-  vanish on Latte; nobody plays on Latte, so it is accepted.
+  vanish on Latte. (2026-10-05: the silhouette amendment below already draws
+  them in the game colour on every theme, Latte included; Latte stays a
+  theme he can pick and must look right.)
   Amended the same day: on Classic's white squares the white marks vanished
   entirely, so a one-colour logo is now drawn as a silhouette in the game's
   colour (MW orange, RL blue). Only a logo uploaded as full colour keeps its

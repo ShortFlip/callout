@@ -68,7 +68,7 @@ export function BingoSquare({
     'relative flex items-center justify-center p-[4%]',
     // Fluid font size: 12cqw = 12% of the cell width — scales with board size
     'text-center font-medium',
-    'text-[clamp(0.6rem,12cqw,1.1rem)]',
+    'text-[clamp(11px,12cqw,1.1rem)]',
     // Only what a mark, a call, a hover or the hot lane changes. The dab and
     // the breathing glow are keyframe animations (.sq-marked) and need no
     // transition; transition-all also eased padding and the fitted font
@@ -112,10 +112,8 @@ export function BingoSquare({
     );
   }
 
-  // A playable square: mark on click, glow when marked.
-  // The pulse keyframes read --sq-glow, so a custom marked color drives the
-  // animation too. The static box-shadow below is byte-identical to the
-  // keyframes' 0%/100% frame, so the glow settles without a visible jump.
+  // A playable square: mark on click, glow when marked. The glow is static;
+  // only the 150ms dab animates (.sq-marked). A custom marked color drives it.
   const customGlow = styles?.squareBgMarked;
   const gameStyle = {
     ...baseInlineStyle,
@@ -123,7 +121,6 @@ export function BingoSquare({
       backgroundColor: isMarked ? styles?.squareBgMarked : styles?.squareBg,
       ...(isMarked && customGlow
         ? {
-            '--sq-glow': customGlow,
             boxShadow: `0 0 0 2px ${customGlow}, 0 0 14px color-mix(in oklab, ${customGlow} 35%, transparent)`,
           }
         : {}),
@@ -138,13 +135,12 @@ export function BingoSquare({
       className={cn(
         base,
         'cursor-pointer select-none',
-        // 150ms dab + amber breathing pulse that settles. Applied for custom
-        // palettes too — the keyframes pick up --sq-glow from the inline style.
+        // 150ms dab when a square is marked, for custom palettes too.
         isMarked && 'sq-marked',
         // Default Tailwind colors only when no custom override
         !hasCustomColors && isMarked && [
-          // No ring-* here: the 2px ring is baked into the shadow below so it
-          // matches the pulse keyframes exactly.
+          // No ring-* here: the 2px ring is baked into the shadow below, so a
+          // custom palette's inline shadow can replace both at once.
           'bg-accent/25 text-foreground',
           'shadow-[0_0_0_2px_var(--accent),0_0_14px_color-mix(in_oklab,var(--accent)_35%,transparent)]',
         ],

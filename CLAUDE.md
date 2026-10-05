@@ -55,7 +55,7 @@ Think neon-lit bowling alley meets modern game night — playful but polished. N
 - **Monospace (codes only):** JetBrains Mono, for the room and claim codes read aloud or typed (O/0, I/1)
 
 ### Key Visual Elements
-- Squares glow subtly when marked (box-shadow pulse)
+- Squares glow subtly when marked (a 150ms dab, then a steady glow; no pulse — the bingo banner is the one loud moment)
 - Winner gets a confetti cannon animation + board highlight
 - Caller panel has a "now calling" card flip animation
 - Room code displayed large and bold — easy to read aloud over a call

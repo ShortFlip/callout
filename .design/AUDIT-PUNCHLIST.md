@@ -42,8 +42,8 @@ scripts/mock-supabase/), so no screenshot run can reach his live project.
 | 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Shipped (batch 3) |
 | 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Shipped (batch 3) |
 | 12 | CLAUDE.md fonts: drop Clash Display and Satoshi | Tweak | 3 | Shipped (batch 3) |
-| 13 | Square text floor 10 → 11px | Tweak | 4 | Open |
-| 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Open |
-| 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Open |
-| 16 | Latte: white game logos visible; drop "nobody plays on Latte" | Tweak | 4 | Open |
+| 13 | Square text floor 10 → 11px | Tweak | 4 | Shipped (batch 4) |
+| 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Shipped (batch 4) |
+| 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Shipped (batch 4) |
+| 16 | Latte: white game logos visible; drop "nobody plays on Latte" | Tweak | 4 | Shipped (batch 4) |
 | 17 | Wider layout for Home, History, Leaderboard, Lobby (audit 5) | Feature | — | Grey wireframe first, then wait for go |
