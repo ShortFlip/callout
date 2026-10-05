@@ -133,10 +133,11 @@ squares/
 │   │   ├── board/
 │   │   │   ├── BingoBoard.tsx        # The NxN grid — marking, hot lane, called wash
 │   │   │   ├── BingoSquare.tsx       # One square — text, image, marked/called state
-│   │   │   └── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
+│   │   │   ├── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
+│   │   │   └── CardPreview.tsx       # A saved card's tiles in game colours (Home, Lobby)
 │   │   ├── game/
 │   │   │   ├── RoomClient.tsx        # Room state machine + all Supabase writes
-│   │   │   ├── GameLobby.tsx         # Pre-game waiting room
+│   │   │   ├── GameLobby.tsx         # Pre-game room — code, crew seats, card, rules
 │   │   │   ├── GameView.tsx          # The Scoreboard screen: header, hero board, rail
 │   │   │   ├── RailCard.tsx          # One other player in the rail — mini + progress
 │   │   │   ├── WinBanner.tsx         # In-flow gold win band (never an overlay)
@@ -144,7 +145,6 @@ squares/
 │   │   │   ├── GameOver.tsx          # Night over — Play Again (host) or waiting copy
 │   │   │   ├── CallerPanel.tsx       # Traditional mode only — call list, next button
 │   │   │   ├── CalledItems.tsx       # Traditional mode only — call history
-│   │   │   ├── PlayerList.tsx        # Lobby roster
 │   │   │   ├── CreateRoomDialog.tsx  # Name + template + settings
 │   │   │   ├── TemplateList.tsx      # Saved templates on the landing page
 │   │   │   ├── DisplayNameDialog.tsx # First-visit name prompt
