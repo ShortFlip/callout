@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { THEMES, getSavedTheme, applyTheme, type ThemeId } from '@/lib/theme';
+import { SECTION_LABEL } from '@/lib/label';
 
 export function ThemePicker() {
   const [current, setCurrent] = useState<ThemeId>('midnight');
@@ -22,7 +23,7 @@ export function ThemePicker() {
 
   return (
     <div className="space-y-2">
-      <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">Theme</p>
+      <p className={SECTION_LABEL}>Theme</p>
       <div className="grid grid-cols-3 gap-2">
         {THEMES.map((theme) => (
           <button

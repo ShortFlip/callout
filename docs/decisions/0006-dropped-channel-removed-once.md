@@ -1,4 +1,4 @@
-# 0005 — A dropped channel is removed once, outside its own callback
+# 0006 — A dropped channel is removed once, outside its own callback
 
 - **Date:** 2026-10-05
 - **Symptom:** Killing the local mock Supabase under an open room

@@ -4,6 +4,7 @@ import { Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import type { PresencePlayer } from '@/hooks/useRealtimeRoom';
+import { SECTION_LABEL } from '@/lib/label';
 
 interface PlayerListProps {
   players: PresencePlayer[];
@@ -14,7 +15,7 @@ interface PlayerListProps {
 export function PlayerList({ players, hostId, className }: PlayerListProps) {
   return (
     <div className={cn('space-y-2', className)}>
-      <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">
+      <p className={SECTION_LABEL}>
         Players ({players.length})
       </p>
       <ul className="space-y-1.5">

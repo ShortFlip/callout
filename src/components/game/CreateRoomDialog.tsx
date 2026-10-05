@@ -32,6 +32,7 @@ import {
 import { CardSplitWords } from '@/components/library/CardSplitWords';
 import type { CardTemplate } from '@/types/card';
 import type { GameMode } from '@/types/game';
+import { SkeletonRows } from '@/components/ui/skeleton-rows';
 
 // Mode picker copy — kept next to the type so adding a mode forces updating both
 const GAME_MODES: { value: GameMode; label: string; description: string }[] = [
@@ -313,10 +314,7 @@ export function CreateRoomDialog({ open, onOpenChange, card }: CreateRoomDialogP
                   {loadFailed ? (
                     'Could not load this card.'
                   ) : (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Loading the card…
-                    </>
+                    <SkeletonRows count={1} label="Loading the card" className="w-full" rowClassName="h-[58px]" />
                   )}
                 </div>
               )
@@ -325,10 +323,7 @@ export function CreateRoomDialog({ open, onOpenChange, card }: CreateRoomDialogP
                 {loadFailed ? (
                   'Could not load your cards.'
                 ) : (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading Your Cards…
-                  </>
+                  <SkeletonRows count={3} label="Loading your cards" className="w-full" rowClassName="h-[58px]" />
                 )}
               </div>
             ) : isEmpty ? (

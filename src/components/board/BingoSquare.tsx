@@ -102,7 +102,7 @@ export function BingoSquare({
         <span
           style={{ color: styles?.textColor }}
           className={cn(
-            'font-display font-bold text-xs tracking-widest uppercase',
+            'font-display font-bold text-[13px]',
             !styles?.textColor && 'text-primary',
           )}
         >
