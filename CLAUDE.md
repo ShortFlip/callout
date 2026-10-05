@@ -90,8 +90,7 @@ Broadcasts are sent from `RoomClient.tsx` and received in `useRealtimeRoom`:
 `game_started`, `item_called`, `mark_updated`, `bingo_confirmed` (sent by the
 winner's own tab), `room_closed`. Join/leave is Presence `sync`. A
 `postgres_changes` subscription on `rooms` and `games` replays a missed broadcast.
-The other names in `types/game.ts` (`square_marked`, `bingo_claimed`,
-`round_reset`, `player_joined`/`player_left`) are never sent.
+The payload types live in `useRealtimeRoom.ts`.
 
 **Authority model:** Host is the source of truth for game progression. Only the host can call items and reset rounds.
 

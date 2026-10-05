@@ -55,9 +55,7 @@ export function useGameState() {
   );
 
   return {
-    calledOriginalIndices,
     calledGridIndices,
-    marksSet,
     canMark,
     currentWin,
   };

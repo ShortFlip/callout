@@ -2,8 +2,6 @@ import type { Database } from '@/lib/supabase/types';
 import type { LegendEntry } from '@/types/library';
 
 export type CardTemplate = Database['public']['Tables']['card_templates']['Row'];
-export type CardTemplateInsert = Database['public']['Tables']['card_templates']['Insert'];
-export type CardTemplateUpdate = Database['public']['Tables']['card_templates']['Update'];
 
 // A single item on a bingo card — at least one of text or imageUrl must be set
 export interface SquareItem {

@@ -7,7 +7,6 @@ import type { SquareItem, CardStyles } from '@/types/card';
 
 interface BingoSquareProps {
   item: SquareItem;
-  index: number;
   isFreeSpace?: boolean;
   styles?: CardStyles;
   isMarked?: boolean;
