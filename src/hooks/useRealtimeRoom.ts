@@ -11,8 +11,7 @@ import { enqueuePending, pendingKey, type PendingBroadcast } from '@/lib/realtim
 import { CATCH_UP_INTERVAL_MS } from '@/lib/realtime/catch-up';
 import { createChannelDropper } from '@/lib/realtime/drop-channel';
 import type { Player } from '@/types/player';
-import type { SquareItem, CardStyles } from '@/types/card';
-import type { WinPattern, GameMode } from '@/types/game';
+import type { WinPattern, GameStartedPayload } from '@/types/game';
 
 export interface PresencePlayer {
   playerId: string;
@@ -27,23 +26,6 @@ export interface PresencePlayer {
  * first load can show a skeleton while a mid-game drop shows the amber bar.
  */
 export type ConnectionState = 'connecting' | 'live' | 'reconnecting';
-
-interface GameStartedPayload {
-  gameId: string;
-  seed: string;
-  roundNumber: number;
-  callList: number[];
-  templateItems: SquareItem[];
-  boardSize: number;
-  freeSpace: boolean;
-  shuffleMode: 'full' | 'column';
-  winPatterns: WinPattern[];
-  gameMode?: GameMode;
-  cardStyles?: CardStyles;
-  // games.started_at, so every tab times bingos from the same instant. Legacy
-  // payloads omit it and fall back to "now".
-  startedAt?: string;
-}
 
 interface ItemCalledPayload {
   callsMade: number;

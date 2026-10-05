@@ -96,7 +96,6 @@ describe('initGame', () => {
     templateItems: [],
     boardSize: 5,
     freeSpace: true,
-    shuffleMode: 'full' as const,
     winPatterns: ['row' as const],
   };
 

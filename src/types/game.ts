@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/supabase/types';
+import type { SquareItem, CardStyles } from '@/types/card';
 
 export type Room = Database['public']['Tables']['rooms']['Row'];
 
@@ -19,4 +20,24 @@ export interface RoomSettings {
   gameMode?: GameMode; // absent on legacy rooms → treat as 'honor'
   autoCall: boolean;
   callInterval: number; // seconds between auto-calls
+}
+
+// The game_started broadcast. The last three are optional for receivers because
+// a payload from an older build may omit them; senders use
+// Required<GameStartedPayload> and always fill them.
+export interface GameStartedPayload {
+  gameId: string;
+  seed: string;
+  roundNumber: number;
+  callList: number[];
+  templateItems: SquareItem[];
+  boardSize: number;
+  freeSpace: boolean;
+  shuffleMode: 'full' | 'column';
+  winPatterns: WinPattern[];
+  gameMode?: GameMode;
+  cardStyles?: CardStyles;
+  // games.started_at, so every tab times bingos from the same instant. Legacy
+  // payloads omit it and fall back to "now".
+  startedAt?: string;
 }

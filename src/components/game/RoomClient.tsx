@@ -26,8 +26,8 @@ import { shouldRetractWin } from '@/lib/game/retract';
 import { withRetry, RETRY_DELAYS_MS } from '@/lib/utils/retry';
 import { resolveRestoredCard, computeBingoTimeMs } from '@/lib/game/restore';
 import type { Json, Tables } from '@/lib/supabase/types';
-import type { Room, WinPattern, GameMode } from '@/types/game';
-import type { SquareItem, CardStyles } from '@/types/card';
+import type { Room, GameStartedPayload } from '@/types/game';
+import type { SquareItem } from '@/types/card';
 
 interface RoomClientProps {
   initialRoom: Room;
@@ -262,7 +262,6 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       templateItems: items,
       boardSize: restored.boardSize,
       freeSpace: restored.freeSpace,
-      shuffleMode: setup.shuffleMode,
       winPatterns: setup.winPatterns,
       gameMode: setup.gameMode,
       cardStyles: setup.cardStyles,
@@ -330,20 +329,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
-  async function handleStartGame(payload: {
-    gameId: string;
-    seed: string;
-    roundNumber: number;
-    callList: number[];
-    templateItems: SquareItem[];
-    boardSize: number;
-    freeSpace: boolean;
-    shuffleMode: 'full' | 'column';
-    winPatterns: WinPattern[];
-    gameMode: GameMode;
-    cardStyles: CardStyles;
-    startedAt: string;
-  }) {
+  async function handleStartGame(payload: Required<GameStartedPayload>) {
     await broadcast('game_started', payload as unknown as Record<string, unknown>);
   }
 
