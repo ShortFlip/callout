@@ -114,7 +114,7 @@ export function HostControls({
                 className="justify-between"
               >
                 {preset.label}
-                {preset.id === stylePreset && <Check className="size-4 text-primary" strokeWidth={2} />}
+                {preset.id === stylePreset && <Check className="size-4 text-primary" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

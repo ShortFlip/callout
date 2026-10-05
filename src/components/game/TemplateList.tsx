@@ -125,7 +125,7 @@ export function TemplateList() {
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="truncate text-sm font-semibold">{card.name}</p>
-                  <span className="shrink-0 font-mono text-[13px] text-muted-foreground">
+                  <span className="shrink-0 tabular-nums text-[13px] text-muted-foreground">
                     {card.board_size}×{card.board_size}
                   </span>
                 </div>

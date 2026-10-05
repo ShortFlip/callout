@@ -9,8 +9,8 @@ export function CardSplitWords({ split }: { split: CardSplit }) {
   if (split.draws !== null) {
     return (
       <>
-        Draws <span className="font-mono">{split.draws}</span> From{' '}
-        <span className="font-mono">{split.parts[0]?.count ?? 0}</span> Items
+        Draws <span className="tabular-nums">{split.draws}</span> From{' '}
+        <span className="tabular-nums">{split.parts[0]?.count ?? 0}</span> Items
       </>
     );
   }
@@ -19,7 +19,7 @@ export function CardSplitWords({ split }: { split: CardSplit }) {
       {split.parts.map((part, i) => (
         <span key={`${part.label}-${i}`}>
           {i > 0 && ' · '}
-          <span className="font-mono">{part.count}</span> {part.label}
+          <span className="tabular-nums">{part.count}</span> {part.label}
         </span>
       ))}
     </>

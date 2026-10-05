@@ -39,7 +39,7 @@ export function ServerUnreachable({ onRetry }: ServerUnreachableProps) {
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="glass rounded-2xl w-full max-w-sm p-8 text-center space-y-4">
-        {/* Same amber mono vocabulary as the in-game Reconnecting bar. */}
+        {/* Same amber pill type as the in-game Reconnecting bar. */}
         <span className={cn(PILL_TYPE, 'inline-block text-accent')}>
           Offline
         </span>

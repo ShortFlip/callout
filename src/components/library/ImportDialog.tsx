@@ -121,11 +121,11 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
               autoFocus
             />
             <p className="text-[13px] text-muted-foreground" data-testid="import-count">
-              <span className="font-mono text-foreground">{parsed.length}</span> Items Found
+              <span className="tabular-nums text-foreground">{parsed.length}</span> Items Found
               {plan.skipped > 0 && (
                 <>
                   {' · '}
-                  <span className="font-mono text-foreground">{plan.skipped}</span> Already In Your Library
+                  <span className="tabular-nums text-foreground">{plan.skipped}</span> Already In Your Library
                 </>
               )}
             </p>

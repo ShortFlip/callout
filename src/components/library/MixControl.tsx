@@ -73,10 +73,10 @@ export function MixControl({ lanes, games, counts, available, capped, slots, onC
               <span className="flex min-w-0 items-center gap-1.5">
                 <GameGlyph game={gameOf(left)} />
                 <span className="truncate">{nameOf(left)}</span>
-                <span className="font-mono text-[13px] text-muted-foreground">{pct(a)}%</span>
+                <span className="tabular-nums text-[13px] text-muted-foreground">{pct(a)}%</span>
               </span>
               <span className="flex min-w-0 items-center gap-1.5">
-                <span className="font-mono text-[13px] text-muted-foreground">{pct(b)}%</span>
+                <span className="tabular-nums text-[13px] text-muted-foreground">{pct(b)}%</span>
                 <span className="truncate">{nameOf(right)}</span>
                 <GameGlyph game={gameOf(right)} />
               </span>
@@ -131,7 +131,7 @@ export function MixControl({ lanes, games, counts, available, capped, slots, onC
                   onChange(rebalanceLanes(current, index, n, slots, available));
                 }}
               />
-              <span className="w-7 shrink-0 text-right font-mono text-[13px]">{countOf(lane)}</span>
+              <span className="w-7 shrink-0 text-right tabular-nums text-[13px]">{countOf(lane)}</span>
             </div>
           ))}
         </div>
@@ -144,7 +144,7 @@ export function MixControl({ lanes, games, counts, available, capped, slots, onC
             : words.map(({ lane, n }, i) => (
                 <span key={lane ?? 'none'}>
                   {i > 0 && ' · '}
-                  <span className="font-mono text-foreground">{n}</span> {nameOf(lane)}
+                  <span className="tabular-nums text-foreground">{n}</span> {nameOf(lane)}
                 </span>
               ))}
         </p>

@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
                     )}
                   >
                     {/* Rank */}
-                    <span className="text-sm font-mono font-bold text-muted-foreground">
+                    <span className="text-sm tabular-nums font-bold text-muted-foreground">
                       {medal ?? `${rank}`}
                     </span>
 
@@ -173,7 +173,7 @@ export default function LeaderboardPage() {
                     </span>
 
                     {/* Best time */}
-                    <span className="text-right text-sm font-mono text-muted-foreground">
+                    <span className="text-right text-sm tabular-nums text-muted-foreground">
                       {formatTime(row.bestTimeMs)}
                     </span>
                   </li>

@@ -38,10 +38,10 @@ scripts/mock-supabase/), so no screenshot run can reach his live project.
 | 6 | Status lines as sentences: "Profile saved.", "Loading your cards…" (audit 7) | Tweak | 2 | Shipped (batch 2) |
 | 7 | Undo on removing a saved card (audit 8) | Tweak | 2 | Shipped (batch 2) |
 | 8 | "cancelled" → "canceled" (audit 9) | Tweak | 2 | Shipped (batch 2) |
-| 9 | Raw `error.message` toast in Library → friendly fallback (audit 11) | Tweak | 3 | Open |
-| 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Open |
-| 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Open |
-| 12 | CLAUDE.md fonts: drop Clash Display and Satoshi | Tweak | 3 | Open |
+| 9 | Raw `error.message` toast in Library → friendly fallback (audit 11) | Tweak | 3 | Shipped (batch 3) |
+| 10 | One icon stroke, 1.75 (audit 12) | Tweak | 3 | Shipped (batch 3) |
+| 11 | Mono only for the room code; scores tabular body font, pills body Title Case | Tweak | 3 | Shipped (batch 3) |
+| 12 | CLAUDE.md fonts: drop Clash Display and Satoshi | Tweak | 3 | Shipped (batch 3) |
 | 13 | Square text floor 10 → 11px | Tweak | 4 | Open |
 | 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Open |
 | 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Open |

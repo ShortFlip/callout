@@ -57,7 +57,7 @@ export function CallerPanel({ gameId, onCallNext }: CallerPanelProps) {
         <p className={SECTION_LABEL}>
           Caller Panel
         </p>
-        <span className="font-mono text-[13px] text-muted-foreground">
+        <span className="tabular-nums text-[13px] text-muted-foreground">
           {calledCount}/{totalItems}
         </span>
       </div>
