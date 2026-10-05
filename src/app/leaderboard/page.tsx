@@ -95,7 +95,7 @@ export default function LeaderboardPage() {
           </Link>
           <h1 className="font-display text-3xl font-black">Leaderboard</h1>
           <p className="text-muted-foreground text-sm">
-            Everyone who has played a night with you. Unfinished and cancelled rounds don&apos;t count.
+            Everyone who has played a night with you. Unfinished and canceled rounds don&apos;t count.
           </p>
         </div>
 

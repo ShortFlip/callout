@@ -153,7 +153,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
 
       // Reflect changes in the store immediately — no page reload needed
       updatePlayer({ display_name: displayName.trim(), avatar_url: avatarUrl });
-      toast.success('Profile Saved');
+      toast.success('Profile saved.');
       onOpenChange(false);
     } catch (err) {
       console.error('Profile save failed:', err);

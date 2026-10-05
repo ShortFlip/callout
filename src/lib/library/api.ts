@@ -500,6 +500,20 @@ export async function unsaveCard(cardId: string, name: string): Promise<void> {
 }
 
 /**
+ * Undo for unsaveCard: put the card back on Saved Cards. The row was never
+ * deleted, so this only flips saved back. Owner only, like unsaveCard.
+ */
+export async function restoreCard(cardId: string, name: string): Promise<void> {
+  const { data, error } = await createClient()
+    .from('card_templates')
+    .update({ saved: true })
+    .eq('id', cardId)
+    .select('id');
+  if (error) fail('restoreCard', `Could not bring back “${name}”.`, error);
+  expectRows('restoreCard', `Could not bring back “${name}”. Refresh and try again.`, data?.length ?? 0, 1);
+}
+
+/**
  * Insert an unsaved card as its own card_templates row (saved = false), so the
  * room hosting it has a template_id like every other room. Returns the new id.
  */
