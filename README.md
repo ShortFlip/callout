@@ -21,20 +21,21 @@ product.
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+npm run dev          # http://localhost:3000, against the LIVE Supabase project
+npm run dev:mock     # http://localhost:3123, against a local fake Supabase (scripts/mock-supabase)
+npm test             # Vitest
 npx tsc --noEmit     # type check
 npm run lint
 ```
 
 ## Environment variables
 
-Copy `.env.local.example` to `.env.local` and fill in:
+Create `.env.local` with:
 
 | Variable | Notes |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side only — never expose to the client |
 
 ## Database
 
