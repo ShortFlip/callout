@@ -2,7 +2,7 @@
 
 Source: `docs/design-audit-2026-10-04.md`, checked against
 `~/.claude/docs/design-preferences.md` (rule numbers refer to it). Kept apart
-from `.design/PUNCHLIST.md` and `.claude/PUNCHLIST.md`, which belong to other
+from `.claude/archive/PUNCHLIST-design.md` and `.claude/PUNCHLIST.md`, which belong to other
 workstreams.
 
 ## 2026-10-05 — his brief, verbatim

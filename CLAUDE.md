@@ -189,7 +189,7 @@ squares/
 │
 ├── supabase/migrations/              # 0001 schema → RLS fixes → avatars →
 │                                     # enable_realtime → claim_codes
-├── .design/                          # PUNCHLIST.md, UPGRADE-PLAN.md, mockups/ (tracked); refs/ gitignored
+├── .design/                          # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
 ├── .github/workflows/deploy.yml      # PR: gates + bundle dry run. master: gates + deploy
 ├── .github/workflows/keepalive.yml   # Twice-weekly Supabase ping (one of two pingers)
 ├── custom-worker.ts                  # Worker entry: OpenNext fetch + keepalive Cron handler

@@ -4,7 +4,7 @@
 - **Symptom:** Phase 1.7 promises a "BINGO!" button and Edge Function verification; the build auto-claims with no button and verifies nothing server-side.
 - **Measurement:** none recorded
 - **Rule:** Where this plan disagrees with the code or CLAUDE.md's Architecture section, the code wins. Ask before building a plan item that has not shipped.
-- **Code site:** none (plan only); the 2026-09 upgrade plan is `.design/UPGRADE-PLAN.md`
+- **Code site:** none (plan only); the 2026-09 upgrade plan is archived at `.claude/archive/UPGRADE-PLAN.md`
 
 ## Original note (moved verbatim from CLAUDE.md, 2026-09-22)
 
