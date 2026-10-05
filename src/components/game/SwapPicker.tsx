@@ -15,6 +15,7 @@ import { GameMark } from '@/components/board/GameMark';
 import { BTN, BTN_PRIMARY } from '@/components/library/GameGlyph';
 import { pairReplacements, swapItemKey, type SwapPlan, type SwapReplacements } from '@/lib/game/swap-games';
 import { cn } from '@/lib/utils';
+import { SECTION_LABEL } from '@/lib/label';
 import type { BoardGame } from '@/lib/library/legend';
 import type { SquareItem } from '@/types/card';
 
@@ -145,15 +146,28 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
           </DialogTitle>
           <DialogDescription>
             {drop && target
-              ? `Pick the ${target.name} squares that take each ${drop.name} square's place. Every card gets the same swap; marked squares and FREE stay put.`
+              ? `Pick the ${target.name} squares that take each ${drop.name} square's place. Every card gets the same swap; marked squares and Free stay put.`
               : ''}
           </DialogDescription>
         </DialogHeader>
 
         {load.status === 'loading' && (
-          <div className="flex items-center gap-2 py-10 justify-center text-muted-foreground" data-testid="swap-loading">
-            <Loader2 className="size-4 animate-spin" />
-            Loading {target?.name} Squares…
+          // Skeleton rows in the two lists' shape, not a lone spinner: the dialog
+          // keeps its size while the squares load (design rule 61).
+          <div
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-4"
+            data-testid="swap-loading"
+            aria-busy="true"
+            aria-label={`Loading ${target?.name ?? ''} squares`}
+          >
+            {[0, 1].map((col) => (
+              <div key={col} className="flex flex-col gap-1">
+                <div className="mb-2 h-[18px] w-24 rounded-sm bg-muted animate-pulse" />
+                {[0, 1, 2, 3].map((row) => (
+                  <div key={row} className="h-[34px] rounded-md bg-muted animate-pulse" />
+                ))}
+              </div>
+            ))}
           </div>
         )}
 
@@ -176,7 +190,7 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-4">
             {/* Left: what goes, and what each one becomes as the picks fill in. */}
             <section className="min-w-0">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <h3 className={cn(SECTION_LABEL, 'mb-2')}>
                 Replacing
               </h3>
               <ul className={cn('flex flex-col gap-1', LIST_SCROLL)} data-testid="swap-dropped">
@@ -208,11 +222,11 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
             {/* Right: the target game's items, none of which is on any card yet. */}
             <section className="min-w-0">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <h3 className={SECTION_LABEL}>
                   {target?.name} Squares
                 </h3>
                 <span
-                  className={cn('font-mono text-xs', picks.length === need ? 'text-emerald-400' : 'text-muted-foreground')}
+                  className={cn('text-[13px] tabular-nums', picks.length === need ? 'text-emerald-400' : 'text-muted-foreground')}
                   data-testid="swap-count"
                 >
                   {picks.length} of {need} Picked
@@ -249,7 +263,7 @@ export function SwapPicker({ pending, onClose, onLoadPlan, onSwap }: SwapPickerP
                           {target && <Mark side={target} />}
                           <span className="min-w-0 flex-1 truncate">{itemLabel(item)}</span>
                           {picked ? (
-                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-[11px] font-bold text-primary-foreground">
+                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-bold tabular-nums text-primary-foreground">
                               {order + 1}
                             </span>
                           ) : (

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { ThemePicker } from './ThemePicker';
 import { PlayerStats } from '@/components/stats/PlayerStats';
+import { SECTION_LABEL } from '@/lib/label';
 
 interface ProfileModalProps {
   open: boolean;
@@ -234,7 +235,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
 
           {/* Claim code — carry this identity to another machine */}
           <div className="space-y-2">
-            <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">
+            <p className={SECTION_LABEL}>
               Claim Code
             </p>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">

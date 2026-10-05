@@ -45,13 +45,18 @@
   --color-grid-line: var(--grid-line);
   /* Winner gold. Phase 2 only defines it; Phase 3 spends it on the win moment. */
   --color-gold: var(--gold);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Radius ladder, capped at 10px (2026-10-04 design audit, rule 36: 6-10px;
+     18px reads as too round). Panels (2xl) 10, cards (xl, lg) 8, controls 6, chips 4.
+     Before this, xl and 2xl scaled to 11.2 and 14.4px, which made Home cards
+     and the game panels read rounder than the rest. 2xl and up all stop at 10
+     so no existing class can reach past the cap. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  --radius-3xl: 10px;
+  --radius-4xl: 10px;
 }
 
 /* Light mode — secondary, used when dark class is absent */

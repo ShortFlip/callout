@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { useGameStore } from '@/stores/gameStore';
 import type { SquareItem } from '@/types/card';
+import { SECTION_LABEL } from '@/lib/label';
 
 interface CallerPanelProps {
   gameId: string;
@@ -53,7 +54,7 @@ export function CallerPanel({ gameId, onCallNext }: CallerPanelProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] uppercase tracking-widest text-muted-foreground font-medium">
+        <p className={SECTION_LABEL}>
           Caller Panel
         </p>
         <span className="font-mono text-[13px] text-muted-foreground">

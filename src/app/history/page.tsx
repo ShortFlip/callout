@@ -14,6 +14,7 @@ import { cardLegend } from '@/lib/library/legend';
 import { cn } from '@/lib/utils';
 import { PILL } from '@/lib/pill';
 import type { SquareItem, CardStyles } from '@/types/card';
+import { SECTION_LABEL } from '@/lib/label';
 
 /** One player's card in one round. */
 interface RoundPlayer {
@@ -365,7 +366,7 @@ function RoundRow({ round, night, myId }: { round: Round; night: Night; myId: st
   return (
     <div className={cn('px-4 py-3 space-y-2', cancelled && 'opacity-60')}>
       <div className="flex items-center justify-between">
-        <p className="text-[13px] uppercase tracking-widest text-muted-foreground">
+        <p className={SECTION_LABEL}>
           Round <span className="font-mono">{round.roundNumber}</span>
         </p>
         {cancelled && <span className="text-[13px] text-muted-foreground">No Winner</span>}
@@ -433,11 +434,11 @@ function CardSnapshot({ entry, night }: { entry: RoundPlayer; night: Night }) {
     <div className="pt-2">
       {games.length > 0 ? (
         <div className="mb-2 flex max-w-[480px] items-center justify-between gap-3">
-          <p className="text-[13px] text-muted-foreground uppercase tracking-widest">Your card</p>
+          <p className={SECTION_LABEL}>Your Card</p>
           <BoardLegend games={games} />
         </div>
       ) : (
-        <p className="text-[13px] text-muted-foreground mb-2 uppercase tracking-widest">Your card</p>
+        <p className={cn(SECTION_LABEL, 'mb-2')}>Your Card</p>
       )}
       {/* pointer-events-none prevents interaction with the snapshot */}
       <div className="pointer-events-none">

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePlayer } from '@/hooks/usePlayer';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { formatTime } from '@/lib/achievements';
 import { cn } from '@/lib/utils';
 import { buildLeaderboard, type LeaderboardRecord, type LeaderboardRow } from '@/lib/game/stats';
+import { SkeletonRows } from '@/components/ui/skeleton-rows';
 
 export default function LeaderboardPage() {
   const { player } = usePlayer();
@@ -99,10 +100,7 @@ export default function LeaderboardPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading…
-          </div>
+          <SkeletonRows count={5} label="Loading the leaderboard" rowClassName="h-[52px]" />
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <p className="font-display font-bold">No One on the Board Yet</p>
@@ -111,13 +109,13 @@ export default function LeaderboardPage() {
           <>
             {/* Column headers. At 13px, GAMES needs ~52px, so its column is
                 3.5rem (it was 3rem, sized for 11px); the rows share the template. */}
-            <div className="grid grid-cols-[2rem_1fr_3rem_3.5rem_4rem_5rem] gap-3 items-center px-4 text-[13px] text-muted-foreground uppercase tracking-widest">
+            <div className="grid grid-cols-[2rem_1fr_3rem_3.5rem_4rem_5rem] gap-3 items-center px-4 text-[13px] font-semibold text-muted-foreground">
               <span>#</span>
               <span>Player</span>
               <span className="text-right">Wins</span>
               <span className="text-right">Games</span>
               <span className="text-right">Win %</span>
-              <span className="text-right">Best time</span>
+              <span className="text-right">Best Time</span>
             </div>
 
             <ul className="space-y-2">

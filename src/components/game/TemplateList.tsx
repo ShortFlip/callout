@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { BookmarkMinus, Library, Loader2, Pencil } from 'lucide-react';
+import { BookmarkMinus, Library, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { usePlayer } from '@/hooks/usePlayer';
 import { LibraryError, loadSavedCards, unsaveCard } from '@/lib/library/api';
@@ -11,6 +11,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { CardSplitWords } from '@/components/library/CardSplitWords';
 import { ConfirmDialog } from '@/components/library/TagDialogs';
 import type { CardTemplate } from '@/types/card';
+import { SkeletonRows } from '@/components/ui/skeleton-rows';
 
 // A 150ms colour transition (the owner's motion rule); the Button primitive now carries it too.
 const BTN = 'transition-colors duration-150';
@@ -71,10 +72,12 @@ export function TemplateList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        Loading Your Cards…
-      </div>
+      <SkeletonRows
+        count={4}
+        label="Loading your cards"
+        className="grid grid-cols-2 gap-3 space-y-0"
+        rowClassName="h-[120px] rounded-xl"
+      />
     );
   }
 
