@@ -90,8 +90,7 @@ Broadcasts are sent from `RoomClient.tsx` and received in `useRealtimeRoom`:
 `game_started`, `item_called`, `mark_updated`, `bingo_confirmed` (sent by the
 winner's own tab), `room_closed`. Join/leave is Presence `sync`. A
 `postgres_changes` subscription on `rooms` and `games` replays a missed broadcast.
-The other names in `types/game.ts` (`square_marked`, `bingo_claimed`,
-`round_reset`, `player_joined`/`player_left`) are never sent.
+The payload types live in `useRealtimeRoom.ts`.
 
 **Authority model:** Host is the source of truth for game progression. Only the host can call items and reset rounds.
 
@@ -190,7 +189,7 @@ squares/
 │
 ├── supabase/migrations/              # 0001 schema → RLS fixes → avatars →
 │                                     # enable_realtime → claim_codes
-├── .design/                          # PUNCHLIST.md, UPGRADE-PLAN.md, mockups/ (tracked); refs/ gitignored
+├── .design/                          # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
 ├── .github/workflows/deploy.yml      # PR: gates + bundle dry run. master: gates + deploy
 ├── .github/workflows/keepalive.yml   # Twice-weekly Supabase ping (one of two pingers)
 ├── custom-worker.ts                  # Worker entry: OpenNext fetch + keepalive Cron handler

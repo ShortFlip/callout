@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { SquareItem, CardStyles } from '@/types/card';
-import type { WinPattern, GameMode } from '@/types/game';
+import type { WinPattern, GameMode, GameStartedPayload } from '@/types/game';
 import { resolveGameStartedAt } from '@/lib/game/restore';
 
 /**
@@ -45,7 +45,6 @@ interface GameState {
   templateItems: SquareItem[];
   boardSize: number;
   freeSpace: boolean;
-  shuffleMode: 'full' | 'column';
   winPatterns: WinPattern[];
   gameMode: GameMode;
   cardStyles: CardStyles;
@@ -66,22 +65,10 @@ interface GameState {
   others: Record<string, OtherPlayer>;
 
   // Actions
-  initGame: (params: {
-    gameId: string;
-    seed: string;
-    roundNumber: number;
-    callList: number[];
-    templateItems: SquareItem[];
-    boardSize: number;
-    freeSpace: boolean;
-    shuffleMode: 'full' | 'column';
-    winPatterns: WinPattern[];
-    gameMode?: GameMode; // legacy game_started payloads omit it → 'honor'
-    cardStyles?: CardStyles;
-    // games.started_at. Optional only because a legacy game_started payload
-    // omits it; every current path passes the DB value.
-    startedAt?: string | null;
-  }) => void;
+  // shuffleMode is left out: card generation reads it from the payload or the
+  // round setup, never from the store. startedAt also takes null because the
+  // rejoin path passes games.started_at straight from the DB.
+  initGame: (params: Omit<GameStartedPayload, 'shuffleMode' | 'startedAt'> & { startedAt?: string | null }) => void;
   setMyCard: (card: SquareItem[]) => void;
   /** The host's mid-game Style switch: redraws every board without touching cards or marks. */
   setCardStyles: (styles: CardStyles) => void;
@@ -106,7 +93,6 @@ const initial: Omit<GameState, keyof { initGame: unknown; setMyCard: unknown; se
   templateItems: [],
   boardSize: 5,
   freeSpace: true,
-  shuffleMode: 'full',
   winPatterns: ['row', 'column', 'diagonal'],
   gameMode: 'honor' as GameMode,
   cardStyles: {},

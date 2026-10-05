@@ -15,29 +15,16 @@ import { formatPattern } from '@/lib/achievements';
 import { PILL } from '@/lib/pill';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import type { Room, RoomSettings, WinPattern, GameMode } from '@/types/game';
+import type { Room, RoomSettings, GameStartedPayload } from '@/types/game';
 import type { PresencePlayer, ConnectionState } from '@/hooks/useRealtimeRoom';
-import type { CardStyles, CardTemplate } from '@/types/card';
+import type { CardTemplate } from '@/types/card';
 
 interface GameLobbyProps {
   room: Room;
   currentPlayerId: string;
   presentPlayers: PresencePlayer[];
   connection: ConnectionState;
-  onStartGame: (payload: {
-    gameId: string;
-    seed: string;
-    roundNumber: number;
-    callList: number[];
-    templateItems: { text?: string; imageUrl?: string; clue?: string }[];
-    boardSize: number;
-    freeSpace: boolean;
-    shuffleMode: 'full' | 'column';
-    winPatterns: WinPattern[];
-    gameMode: GameMode;
-    cardStyles: CardStyles;
-    startedAt: string;
-  }) => Promise<void>;
+  onStartGame: (payload: Required<GameStartedPayload>) => Promise<void>;
 }
 
 export function GameLobby({
@@ -110,7 +97,6 @@ export function GameLobby({
       const setup = buildGameSetup(template, room.settings);
       const { seed, items, callList } = setup;
 
-      // Create the game record in the DB
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({

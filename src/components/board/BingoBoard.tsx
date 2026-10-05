@@ -82,7 +82,6 @@ export function BingoBoard({
           // are relative to the cell width, not the whole board
           <div key={gridIndex} className="@container">
             <BingoSquare
-              index={gridIndex}
               item={item}
               isFreeSpace={isFreeSpace}
               styles={styles}

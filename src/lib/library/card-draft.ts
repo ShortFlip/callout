@@ -98,11 +98,6 @@ export function mixFromSet(set: SquareItem[]): CardMix {
   return { lanes };
 }
 
-/** Squares per lane in a set, as a lookup. */
-export function countsInSet(set: SquareItem[]): Map<LaneKey, number> {
-  return new Map(mixFromSet(set).lanes.map((lane) => [lane.gameTagId, lane.count]));
-}
-
 /**
  * Three-or-more-lane sliders: set one lane to `value` and share what is left
  * across the others in proportion to what they hold now, by largest remainder

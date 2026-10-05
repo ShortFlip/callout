@@ -572,8 +572,3 @@ if (typeof window !== 'undefined') {
     if (state.draft !== prev.draft && state.draft.ownerId) writeStoredDraft(state.draft);
   });
 }
-
-/** Items per lane in the pool the card draws from. */
-export function laneCounts(items: LibraryItem[], draft: CardDraft): Map<LaneKey, number> {
-  return countByLane(poolFor(items, draft));
-}
