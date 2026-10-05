@@ -46,4 +46,4 @@ scripts/mock-supabase/), so no screenshot run can reach his live project.
 | 14 | Lift the ground (vignette ~22% or oklch 0.18) | Tweak | 4 | Shipped (batch 4) |
 | 15 | Marked-square glow: keep the dab, drop the three breaths (audit 10) | Tweak | 4 | Shipped (batch 4) |
 | 16 | Latte: white game logos visible; drop "nobody plays on Latte" | Tweak | 4 | Shipped (batch 4) |
-| 17 | Wider layout for Home, History, Leaderboard, Lobby (audit 5) | Feature | — | Grey wireframe first, then wait for go |
+| 17 | Wider layout for Home, History, Leaderboard, Lobby (audit 5) | Feature | — | Next session, Home first; grey wireframe, then wait for go |
