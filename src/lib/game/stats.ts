@@ -23,6 +23,40 @@ export interface LeaderboardRecord {
   won: boolean;
   bingoTimeMs: number | null;
   gameStatus: string | null;
+  // Which round and night the row belongs to. Optional because the profile
+  // stats card does not read them; Home's last-night tile does.
+  gameId?: string;
+  roomId?: string;
+  startedAt?: string | null;
+}
+
+export interface LastNight {
+  roomId: string;
+  /** When the night's latest round started (ISO). */
+  startedAt: string;
+  /** Rounds somebody won that night. */
+  rounds: number;
+  /** Most wins that night; ties go to whoever reached it in the leaderboard order. */
+  winner: LeaderboardRow | null;
+}
+
+/**
+ * The most recent night (a night is a room) with at least one won round, and
+ * who won the most rounds in it. Cancelled and unfinished rounds don't count,
+ * the same rule as the leaderboard, so the two can never disagree.
+ */
+export function lastNight(records: LeaderboardRecord[]): LastNight | null {
+  const scored = records.filter((r) => isScoredRound(r.gameStatus) && r.roomId && r.startedAt);
+  if (scored.length === 0) return null;
+  const latest = scored.reduce((a, b) => (b.startedAt! > a.startedAt! ? b : a));
+  const night = scored.filter((r) => r.roomId === latest.roomId);
+  const winner = buildLeaderboard(night)[0] ?? null;
+  return {
+    roomId: latest.roomId!,
+    startedAt: latest.startedAt!,
+    rounds: new Set(night.map((r) => r.gameId)).size,
+    winner: winner && winner.wins > 0 ? winner : null,
+  };
 }
 
 export interface LeaderboardRow {
