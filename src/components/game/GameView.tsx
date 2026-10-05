@@ -488,8 +488,8 @@ export function GameView({
               squareClassName={cn(
                 'rounded-[6px] font-medium',
                 hasWinners || size >= 6
-                  ? 'text-[clamp(10px,12cqw,11px)]'
-                  : 'text-[clamp(10px,13cqw,12px)]',
+                  ? 'text-[clamp(11px,12cqw,11px)]'
+                  : 'text-[clamp(11px,13cqw,12px)]',
               )}
             />
           </div>
