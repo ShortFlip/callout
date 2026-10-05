@@ -50,9 +50,9 @@ Think neon-lit bowling alley meets modern game night — playful but polished. N
 - **Grid lines:** `#2d2d3a` default, customizable per card template
 
 ### Typography
-- **Display/Headers:** A bold, characterful font (e.g., Outfit, Clash Display, or Satoshi) — NOT Inter, NOT Roboto
-- **Body/UI:** A clean geometric sans (e.g., General Sans, Plus Jakarta Sans)
-- **Monospace (codes/stats):** JetBrains Mono
+- **Display/Headers:** Outfit — bold and characterful; NOT Inter, NOT Roboto
+- **Body/UI:** Plus Jakarta Sans; numbers use `tabular-nums`, never mono
+- **Monospace (codes only):** JetBrains Mono, for the room and claim codes read aloud or typed (O/0, I/1)
 
 ### Key Visual Elements
 - Squares glow subtly when marked (box-shadow pulse)

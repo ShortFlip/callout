@@ -160,7 +160,7 @@ export const ItemRow = memo(function ItemRow({
           ))}
           {hiddenTags > 0 && (
             <span
-              className="inline-flex h-6 items-center rounded-full border border-border px-2 font-mono text-[13px] text-muted-foreground"
+              className="inline-flex h-6 items-center rounded-full border border-border px-2 tabular-nums text-[13px] text-muted-foreground"
               title={rowTags.slice(MAX_ROW_TAGS).map((t) => t.name).join(', ')}
             >
               +{hiddenTags}
@@ -185,8 +185,8 @@ export const ItemRow = memo(function ItemRow({
           data-testid="card-toggle"
           data-on-card
         >
-          <Check strokeWidth={2} className="text-success group-hover/card:hidden" />
-          <X strokeWidth={2} className="hidden group-hover/card:block" />
+          <Check className="text-success group-hover/card:hidden" />
+          <X className="hidden group-hover/card:block" />
           <span className="group-hover/card:hidden">Added</span>
           <span className="hidden group-hover/card:inline">Remove</span>
         </Button>
@@ -204,7 +204,7 @@ export const ItemRow = memo(function ItemRow({
             'Card Full'
           ) : (
             <>
-              <Plus strokeWidth={2} />
+              <Plus />
               Add
             </>
           )}

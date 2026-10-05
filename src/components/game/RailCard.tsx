@@ -26,7 +26,7 @@ interface RailCardProps {
   miniSize?: number;
 }
 
-const POSITION_LABELS: Record<number, string> = { 1: '1ST', 2: '2ND', 3: '3RD' };
+const POSITION_LABELS: Record<number, string> = { 1: '1st', 2: '2nd', 3: '3rd' };
 
 /**
  * One other player in the rail: their whole board, their score, and how close
@@ -104,7 +104,7 @@ export function RailCard({
         {synced ? (
           <>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[13px] font-bold">
+              <span className="tabular-nums text-[13px] font-bold">
                 {marks.length} / {total}
               </span>
               {winner && (
@@ -112,7 +112,7 @@ export function RailCard({
                   className={cn(PILL, 'shrink-0 text-background')}
                   style={{ backgroundColor: 'var(--gold)' }}
                 >
-                  {POSITION_LABELS[finishPosition ?? 1] ?? '1ST'}
+                  {POSITION_LABELS[finishPosition ?? 1] ?? '1st'}
                 </span>
               )}
             </div>
@@ -153,7 +153,7 @@ export function RailCard({
         ) : (
           <>
             <span className={cn(PILL, 'self-start bg-accent/15 text-accent border border-accent/30')}>
-              SYNCING
+              Syncing
             </span>
             <p className="text-[13px] font-medium text-balance text-muted-foreground">
               Waiting for their board

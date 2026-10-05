@@ -208,9 +208,9 @@ by measurement, below the table.
 | Wordmark, rail and panel labels | Display, 700–800, Title Case | 14–15 |
 | Section labels (`SECTION_LABEL` in `src/lib/label.ts`) | Body, 600, Title Case, normal tracking | 14 |
 | Room code | Mono, 700, `0.14em` | 26 |
-| My score `N / 25` | Mono, 700 | 15 |
-| Rail score `N / 25` | Mono, 700 | 13 |
-| Pills — `LIVE`, `YOUR BOARD`, `1ST`/`2ND`, `1ST — NAME`, `2ND — OPEN`, `SYNCING`, History's placing; `RECONNECTING` and `OFFLINE` in the same type without the box | Mono, 700, `0.04em`, uppercase, line height 1, padding 3 × 8 (`PILL` in `src/lib/pill.ts`) | 13 |
+| My score `N / 25` | Body, 700, tabular figures | 15 |
+| Rail score `N / 25` | Body, 700, tabular figures | 13 |
+| Pills — `Live`, `Your Board`, `1st`/`2nd`, `1st — Name`, `2nd — Open`, `Syncing`, History's placing; `Reconnecting` and `Offline` in the same type without the box | Body, 700, Title Case, tabular figures, line height 1, padding 3 × 8 (`PILL` in `src/lib/pill.ts`) | 13 |
 | Body, status lines, buttons, labels, captions, table text, chips, avatar initials | Body, 500–600 | 13 minimum |
 | Square text *(exempt: fitted)* | Body, 500, line height 1.25 | 12, 11 under the banner or on 6×6, easing to 10 on small squares |
 
@@ -221,7 +221,8 @@ height is 1.25, set on the text itself in BingoSquare, because a caller's
 text-size class makes `cn` drop any `leading-*` on the square. A pill is 19px
 tall (21px with a border), the height the 10px pills had, so raising the type
 did not raise any row. Every number a player compares against another number
-is monospace, so digits line up down the rail.
+uses tabular figures, so digits line up down the rail. Mono is for the room
+and claim codes only (2026-10-05, docs/decisions/0005).
 
 **Radius language.** Radius encodes size, not decoration.
 

@@ -280,6 +280,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* One icon stroke app-wide (design rule 58, 2026-10-04 audit): 46 icons
+     were at 1.75, 9 at 2 and every lucide icon without a prop at the default 2.
+     CSS beats the strokeWidth attribute, so this holds whatever a caller sets. */
+  svg.lucide {
+    stroke-width: 1.75;
+  }
   body {
     @apply bg-background text-foreground;
     /* Faint violet vignette bleeding down from the top — gives the flat

@@ -10,7 +10,7 @@ import { CardPane } from '@/components/library/CardPane';
 import { ImportDialog } from '@/components/library/ImportDialog';
 import { ItemsPane } from '@/components/library/ItemsPane';
 import { usePlayer } from '@/hooks/usePlayer';
-import { loadCard } from '@/lib/library/api';
+import { LibraryError, loadCard } from '@/lib/library/api';
 import { notify } from '@/lib/library/notify';
 import { useLibraryStore } from '@/stores/libraryStore';
 
@@ -50,7 +50,7 @@ function LibraryPageContent() {
           if (card) useLibraryStore.getState().loadCard(card);
           else notify.error('That card could not be found.');
         } catch (error) {
-          notify.error(error instanceof Error ? error.message : 'Could not open that card.');
+          notify.error(error instanceof LibraryError ? error.message : 'Could not open that card.');
         }
         // Drop the param so a refresh keeps the edits instead of reloading the card over them.
         router.replace('/library');

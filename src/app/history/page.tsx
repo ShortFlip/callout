@@ -321,7 +321,7 @@ function NightCard({
           <p className="text-[13px] text-muted-foreground">
             {date && date.toLocaleDateString()}
             {' · '}
-            <span className="font-mono">{night.rounds.length}</span>
+            <span className="tabular-nums">{night.rounds.length}</span>
             {night.rounds.length === 1 ? ' round' : ' rounds'}
             {night.winners.length > 0 && ` · Won by ${night.winners.join(', ')}`}
           </p>
@@ -367,7 +367,7 @@ function RoundRow({ round, night, myId }: { round: Round; night: Night; myId: st
     <div className={cn('px-4 py-3 space-y-2', cancelled && 'opacity-60')}>
       <div className="flex items-center justify-between">
         <p className={SECTION_LABEL}>
-          Round <span className="font-mono">{round.roundNumber}</span>
+          Round <span className="tabular-nums">{round.roundNumber}</span>
         </p>
         {cancelled && <span className="text-[13px] text-muted-foreground">No Winner</span>}
       </div>
@@ -394,7 +394,7 @@ function RoundRow({ round, night, myId }: { round: Round; night: Night; myId: st
                     backgroundColor: 'color-mix(in oklab, var(--gold) 18%, transparent)',
                   }}
                 >
-                  {p.finishPosition === 2 ? '2ND' : '1ST'}
+                  {p.finishPosition === 2 ? '2nd' : '1st'}
                 </span>
                 {round.winPattern && (
                   <span className="text-[13px] text-muted-foreground">
@@ -404,7 +404,7 @@ function RoundRow({ round, night, myId }: { round: Round; night: Night; myId: st
               </>
             )}
 
-            <span className="ml-auto font-mono text-[13px] text-muted-foreground">
+            <span className="ml-auto tabular-nums text-[13px] text-muted-foreground">
               {p.marks}/{p.total}
             </span>
           </li>

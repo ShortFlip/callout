@@ -301,7 +301,7 @@ export function CreateRoomDialog({ open, onOpenChange, card }: CreateRoomDialogP
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="truncate text-sm font-medium">{fixedSummary.name}</p>
-                    <span className="shrink-0 font-mono text-[13px] text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-[13px] text-muted-foreground">
                       {fixedSummary.boardSize}×{fixedSummary.boardSize}
                     </span>
                   </div>
@@ -364,7 +364,7 @@ export function CreateRoomDialog({ open, onOpenChange, card }: CreateRoomDialogP
                           <span className="truncate text-sm font-medium">
                             {isLast ? 'Last Card (Unsaved)' : summary.name}
                           </span>
-                          <span className="shrink-0 font-mono text-[13px] text-muted-foreground">
+                          <span className="shrink-0 tabular-nums text-[13px] text-muted-foreground">
                             {summary.boardSize}×{summary.boardSize}
                           </span>
                         </span>
