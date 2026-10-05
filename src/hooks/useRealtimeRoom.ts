@@ -9,6 +9,7 @@ import { loadGamePlayers } from '@/lib/game/game-players';
 import { useGameStore } from '@/stores/gameStore';
 import { enqueuePending, pendingKey, type PendingBroadcast } from '@/lib/realtime/pending-key';
 import { CATCH_UP_INTERVAL_MS } from '@/lib/realtime/catch-up';
+import { createChannelDropper } from '@/lib/realtime/drop-channel';
 import type { Player } from '@/types/player';
 import type { SquareItem, CardStyles } from '@/types/card';
 import type { WinPattern, GameMode } from '@/types/game';
@@ -151,6 +152,7 @@ export function useRealtimeRoom(
     let attempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const insertTimers = new Set<ReturnType<typeof setTimeout>>();
+    const dropChannel = createChannelDropper<RealtimeChannel>((ch) => supabase.removeChannel(ch));
 
     /**
      * Send everything that failed while we were down, oldest first. Stops at
@@ -419,11 +421,13 @@ export function useRealtimeRoom(
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            setConnection('reconnecting');
             // Drop the dead channel outright: Supabase does not revive an
             // errored channel on its own, and holding it leaks the socket.
-            supabase.removeChannel(channel);
-            channelRef.current = null;
+            // Removing it fires this callback again with CLOSED, so only the
+            // first report per channel tears down and schedules a retry.
+            if (!dropChannel(channel)) return;
+            setConnection('reconnecting');
+            if (channelRef.current === channel) channelRef.current = null;
             const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
             attempt++;
             retryTimer = setTimeout(() => {

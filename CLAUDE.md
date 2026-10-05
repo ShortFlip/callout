@@ -314,6 +314,7 @@ Read the file before changing the code it names. Each keeps the original text ve
 - Every room keeps a `template_id` (unsaved cards are `saved = false` rows; Remove unsaves, never deletes); owner-only writes check the returned row count; after regenerating types, re-mark `players.Insert.claim_code` optional — docs/decisions/0003-item-library.md
 - The card is a list he fills: new cards start empty, Add never evicts, Fill Empty is the only random step, and nothing else moves a square — docs/decisions/0004-card-is-a-list-he-fills.md
 - Design audit rulings: captions are Title Case via SECTION_LABEL, radius caps at 10 (panels 10, cards 8, controls 6), loading lists use SkeletonRows and spinners live only in their button — docs/decisions/0005-design-audit-2026-10-04.md
+- Never call `removeChannel` inside that channel's own status callback; a dropped channel goes through `createChannelDropper` (once, on a microtask) and only its first report moves the backoff — docs/decisions/0006-dropped-channel-removed-once.md
 
 ### Plans
 
@@ -346,9 +347,9 @@ The first-written plan, kept verbatim in `docs/spec/`. Where it disagrees with t
 
 Known gaps, deliberate or otherwise. None of these block a game night.
 
-- **Reconnect backoff has never met a real dropped socket.** The
-  `CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED` path and its 1–2–4–8s backoff were
-  exercised only through the `?state=reconnecting` harness.
+- **Reconnect backoff has met a dropped socket only on the mock.** Killing the
+  mock Supabase under a room exercised the 1–2–4–8s backoff end to end (0006);
+  a real Supabase outage has not been seen yet.
 - **RLS is wide open and win verification is client-side.** Insert and update
   are `true` for every game table, and a win is whatever the claimant's browser
   says it is. Deliberate — three friends on a voice call, no adversary. It is
