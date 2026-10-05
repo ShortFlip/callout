@@ -210,8 +210,6 @@ export function CreateRoomDialog({ open, onOpenChange, card }: CreateRoomDialogP
           settings: {
             winPatterns: ['row', 'column', 'diagonal'],
             gameMode,
-            autoCall: false,
-            callInterval: 15,
           },
         })
         .select()

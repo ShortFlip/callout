@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { loadMyRoomIds } from '@/lib/game/co-players';
 import { usePlayer } from '@/hooks/usePlayer';
 import { BingoBoard } from '@/components/board/BingoBoard';
 import { BoardLegend } from '@/components/board/BoardLegend';
@@ -94,18 +95,12 @@ function HistoryPageContent() {
       const supabase = createClient();
 
       // 1. Which rooms have I played in? A room is a night.
-      const { data: mine, error: mineError } = await supabase
-        .from('game_players')
-        .select('games!game_players_game_id_fkey (room_id)')
-        .eq('player_id', myId);
-
-      if (mineError) { console.error(mineError); setIsLoading(false); return; }
-
-      const roomIds = Array.from(new Set(
-        (mine ?? [])
-          .map((row) => (row.games as { room_id: string } | null)?.room_id)
-          .filter((id): id is string => !!id),
-      ));
+      let roomIds: string[];
+      try {
+        roomIds = await loadMyRoomIds(supabase, myId);
+      } catch (mineError) {
+        console.error(mineError); setIsLoading(false); return;
+      }
 
       if (roomIds.length === 0) { setNights([]); setIsLoading(false); return; }
 

@@ -88,7 +88,8 @@ That is a deliberate call for a three-friend honor-system game — see "Next Up"
 Each game room subscribes to a Supabase Realtime channel: `room:{roomCode}`.
 Broadcasts are sent from `RoomClient.tsx` and received in `useRealtimeRoom`:
 `game_started`, `item_called`, `mark_updated`, `bingo_confirmed` (sent by the
-winner's own tab), `room_closed`. Join/leave is Presence `sync`. A
+winner's own tab), `bingo_retracted` (the winner unmarked), `cards_swapped`,
+`style_changed`, `room_closed`. Join/leave is Presence `sync`. A
 `postgres_changes` subscription on `rooms` and `games` replays a missed broadcast.
 The payload types live in `useRealtimeRoom.ts`.
 
@@ -133,7 +134,10 @@ squares/
 │   │   │   ├── BingoBoard.tsx        # The NxN grid — marking, hot lane, called wash
 │   │   │   ├── BingoSquare.tsx       # One square — text, image, marked/called state
 │   │   │   ├── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
-│   │   │   └── CardPreview.tsx       # A saved card's tiles in game colours (Home, Lobby)
+│   │   │   ├── CardPreview.tsx       # A saved card's tiles in game colours (Home, Lobby)
+│   │   │   ├── BoardLegend.tsx       # Key to the card's game marks: icon, colour, name
+│   │   │   ├── GameMark.tsx          # One game's mark: uploaded logo, else its icon
+│   │   │   └── BoardSkeleton.tsx     # N×N outline while the card loads (no spinner)
 │   │   ├── game/
 │   │   │   ├── RoomClient.tsx        # Room state machine + all Supabase writes
 │   │   │   ├── GameLobby.tsx         # Pre-game room — code, crew seats, card, rules
@@ -144,13 +148,16 @@ squares/
 │   │   │   ├── GameOver.tsx          # Night over — Play Again (host) or waiting copy
 │   │   │   ├── CallerPanel.tsx       # Traditional mode only — call list, next button
 │   │   │   ├── CalledItems.tsx       # Traditional mode only — call history
+│   │   │   ├── SwapPicker.tsx        # Host's mid-round game swap, picked not rolled
+│   │   │   ├── GameSkeleton.tsx      # GameView's frame before the card is ready
 │   │   │   ├── CreateRoomDialog.tsx  # Name + template + settings
 │   │   │   ├── TemplateList.tsx      # Saved templates on the landing page
 │   │   │   ├── DisplayNameDialog.tsx # First-visit name prompt
 │   │   │   ├── PlayerProvider.tsx    # Identity resolution at the app root
 │   │   │   ├── ProfileModal.tsx      # Name, avatar, theme, claim code (no /profile page)
 │   │   │   └── ThemePicker.tsx       # The six app themes
-│   │   ├── layout/RoomCodeDisplay.tsx
+│   │   ├── home/CrewSummary.tsx      # Home's crew avatars row
+│   │   ├── layout/                   # RoomCodeDisplay, SquaresMark (logo), ServerUnreachable
 │   │   ├── library/                  # Library panes, import, mix control
 │   │   ├── stats/PlayerStats.tsx
 │   │   └── ui/                       # shadcn/ui primitives + PlayerAvatar
@@ -165,30 +172,43 @@ squares/
 │   │   │   ├── call-list.ts          # Randomized call order (traditional mode)
 │   │   │   ├── game-setup.ts         # Shared round bootstrap: seed, items, call list
 │   │   │   ├── game-players.ts       # loadGamePlayers — everyone's cards + marks
+│   │   │   ├── create-round.ts       # Insert a round + build its game_started payload
+│   │   │   ├── co-players.ts         # My rooms + every co-player row (leaderboard, Home)
+│   │   │   ├── card-builder.ts       # Squares per game on the library's card pane
+│   │   │   ├── restore.ts            # Which card a rejoining player sees
+│   │   │   ├── retract.ts            # Undoing a win when the winner unmarks
+│   │   │   ├── stats.ts              # Shared rules turning rows into stats
+│   │   │   ├── swap-games.ts         # Mid-round game swap
 │   │   │   ├── import.ts             # parseImport — newlines then commas, dedupe
-│   │   │   └── __tests__/            # Vitest: shuffle, game-setup, win-detection, call-list, import
+│   │   │   └── __tests__/            # Vitest for most of the above
 │   │   ├── library/                  # Library API, card draft, hosting, legend
+│   │   ├── realtime/                 # drop-channel (0006), catch-up reads, send queue key
 │   │   ├── utils/
 │   │   │   ├── browser-id.ts         # localStorage UUID identity
 │   │   │   ├── last-room.ts          # Remembers the last room for the Rejoin chip
 │   │   │   ├── copy-link.ts          # Guarded clipboard write + toast fallback
-│   │   │   └── player-color.ts       # Deterministic avatar color + initials
+│   │   │   ├── player-color.ts       # Deterministic avatar color + initials
+│   │   │   └── retry.ts              # Short backoff for a read/write that must land
 │   │   ├── utils.ts                  # cn() — clsx + tailwind-merge
 │   │   ├── theme.ts                  # The six app themes
 │   │   ├── card-styles.ts            # Card style presets
 │   │   ├── sound.ts                  # Web Audio synthesis — no audio files
 │   │   ├── win-confetti.ts           # The two-cannon burst and the second-place burst
 │   │   ├── achievements.ts           # Badges derived from stats
+│   │   ├── hero-fit.ts               # Hero board sizing (GameView + its skeleton)
+│   │   ├── label.ts / pill.ts        # SECTION_LABEL caption and the pill scale
+│   │   ├── game-colors.ts            # Game colour keys → colours
 │   │   ├── keepalive.ts              # Supabase ping for the Worker Cron Trigger (pure, no Next)
 │   │   └── dev-state.ts              # `?state=` harness, DEV-only, stripped from prod
 │   │
 │   ├── stores/                       # Zustand: gameStore, playerStore
 │   │   └── libraryStore.ts           # Library items, tags, filter and the card draft
-│   ├── hooks/                        # useRealtimeRoom, useGameState, usePlayer
-│   └── types/                        # game.ts, card.ts, player.ts
+│   ├── hooks/                        # useRealtimeRoom, useGameState, usePlayer, useLegendNamesFit
+│   └── types/                        # game.ts, card.ts, player.ts, library.ts
 │
 ├── supabase/migrations/              # 0001 schema → RLS fixes → avatars →
-│                                     # enable_realtime → claim_codes
+│                                     # enable_realtime → claim_codes →
+│                                     # unique_round_number → item_library → game_logos
 ├── .design/                          # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
 ├── .github/workflows/deploy.yml      # PR: gates + bundle dry run. master: gates + deploy
 ├── .github/workflows/keepalive.yml   # Twice-weekly Supabase ping (one of two pingers)
@@ -255,7 +275,6 @@ but is unused: a **night is a room**, and `/history` groups by room.
 # .env.local
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-key  # Server-side only, never expose
 ```
 
 Running locally, type check, lint and migrations: `README.md`.
@@ -282,7 +301,10 @@ a Cloudflare tunnel was dropped in favour of Workers.
 
 - **Unit tests (in place, gate every PR):** `npm test` runs Vitest over card
   generation and shuffling, game setup, win detection and `bestLine`, the call
-  list, the import parser and the keepalive ping.
+  list, the import parser, the card builder, restore, retract, stats, game
+  swaps, card styles, the library (drafts, heat, hosting, legend, logos), the
+  realtime channel drop/catch-up/queue, retry, the game store and the
+  keepalive ping. Pages and components have none.
 - **Screenshots without his live data:** `npm run dev:mock` serves the app on
   :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
   room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
@@ -330,17 +352,6 @@ The first-written plan, kept verbatim in `docs/spec/`. Where it disagrees with t
 - Import `cn` from `@/lib/utils`, never `@/lib/utils/cn` (the old example's path does not exist) — docs/spec/component-pattern-example.md
 
 ---
-
-## Version history
-
-| PR | Shipped | What landed |
-|---|---|---|
-| #7 | 2026-09-08 | Rejoin + connection truth. Vitest; `useRealtimeRoom` handles every channel status with resubscribe backoff and a `connection` state; everyone's cards and marks load from `game_players` into an `others` store slice; landing Rejoin chip. |
-| #8 | 2026-09-08 | The Scoreboard game screen. Glass header with the room code and Copy link, a 608px hero board with the hot lane, a 300px rail of live miniatures, `bestLine`/`bestLineLabel`, the amber reconnecting bar, the SYNCING rail state, `--gold` in every theme, and the DEV-only `?state=` harness. |
-| #9 | 2026-09-08 | The bingo moment. `WinOverlay` retired for an in-flow gold `WinBanner`; the hero grid shrinks 608→520 and stays markable; per-winner fanfare and two-cannon confetti; gold rail cards with `1ST`/`2ND` pills and a gold winning line. |
-| #10 | 2026-09-08 | The item pool. A template holds more items than squares, so every round draws a fresh subset per player; `parseImport` splits newlines then commas and dedupes; count line and Save gate replace the old filled-squares widget. |
-| #11 | 2026-09-08 | Identity and aftermath. `players.claim_code` re-points a new PC at an existing player; `/history` groups rounds into nights with cancelled rounds shown as `No winner`; `/leaderboard` scoped to co-players with cancelled rounds excluded. |
-| #12 (this PR) | 2026-09-08 | Host controls and docs. `HostControls` moves into the game header so a round nobody wins is no longer a dead end; End Night cancels a winnerless final round so it never reaches the leaderboard; `isConnected` and other dead exports removed; CLAUDE.md and DESIGN.md brought back to reality. |
 
 ## Next Up
 

@@ -2,6 +2,28 @@ import { createClient } from '@/lib/supabase/client';
 import type { LeaderboardRecord } from '@/lib/game/stats';
 
 /**
+ * The rooms a player has played at least one round in. A room is a night, so
+ * this is step one of every "my nights" read: History, the leaderboard and
+ * the library heat map. Throws on a failed read.
+ */
+export async function loadMyRoomIds(
+  supabase: ReturnType<typeof createClient>,
+  playerId: string,
+): Promise<string[]> {
+  const { data: mine, error } = await supabase
+    .from('game_players')
+    .select('games!game_players_game_id_fkey (room_id)')
+    .eq('player_id', playerId);
+  if (error) throw error;
+
+  return Array.from(new Set(
+    (mine ?? [])
+      .map((row) => (row.games as { room_id: string } | null)?.room_id)
+      .filter((id): id is string => !!id),
+  ));
+}
+
+/**
  * Every game_players row from every round of every room I have played in,
  * unwrapped. The friend group is everyone who has shared a room with me
  * (Decision B), so this one read feeds the leaderboard and Home's crew,
@@ -15,17 +37,7 @@ export async function loadCoPlayerRecords(myId: string): Promise<LeaderboardReco
   // Step one: my rooms. Step two: every row from every round of those rooms.
   // `!inner` makes the room filter apply to the parent row rather than merely
   // nulling the embed.
-  const { data: mine, error: mineError } = await supabase
-    .from('game_players')
-    .select('games!game_players_game_id_fkey (room_id)')
-    .eq('player_id', myId);
-  if (mineError) throw mineError;
-
-  const roomIds = Array.from(new Set(
-    (mine ?? [])
-      .map((row) => (row.games as { room_id: string } | null)?.room_id)
-      .filter((id): id is string => !!id),
-  ));
+  const roomIds = await loadMyRoomIds(supabase, myId);
   if (roomIds.length === 0) return [];
 
   const { data, error } = await supabase

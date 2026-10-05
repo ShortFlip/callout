@@ -14,6 +14,7 @@ import { useGameStore, type GameWinner } from '@/stores/gameStore';
 import { createClient } from '@/lib/supabase/client';
 import { generateCard } from '@/lib/game/shuffle';
 import { buildGameSetup } from '@/lib/game/game-setup';
+import { createRound } from '@/lib/game/create-round';
 import { withStylePreset } from '@/lib/card-styles';
 import { loadGamePlayers } from '@/lib/game/game-players';
 import { planSwap, swapGameSquares, type SwapPlan, type SwapReplacements } from '@/lib/game/swap-games';
@@ -660,7 +661,6 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
 
       // Shared bootstrap: item filter + settings parse + fresh seed/call list
       const setup = buildGameSetup(template, roomSettings());
-      const { seed, items, callList } = setup;
 
       // Next round number comes from the DB, not the store: a host who
       // refreshed on Game Over has an empty store, and "0 + 1" inserted a
@@ -675,36 +675,8 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
         .maybeSingle();
       if (lastRoundError) throw lastRoundError;
 
-      const { data: game, error } = await supabase
-        .from('games')
-        .insert({
-          room_id: initialRoom.id,
-          round_number: (lastRound?.round_number ?? 0) + 1,
-          call_list: callList,
-          calls_made: 0,
-          seed,
-          status: 'active',
-        })
-        .select()
-        .single();
-
-      if (error || !game) throw error;
-
-      await broadcast('game_started', {
-        gameId: game.id,
-        seed,
-        roundNumber: game.round_number,
-        callList,
-        templateItems: items,
-        boardSize: setup.boardSize,
-        freeSpace: setup.freeSpace,
-        shuffleMode: setup.shuffleMode,
-        winPatterns: setup.winPatterns,
-        gameMode: setup.gameMode,
-        cardStyles: setup.cardStyles,
-        // The DB's start time, so bingo times match what a refreshed tab restores.
-        startedAt: game.started_at,
-      });
+      const payload = await createRound(supabase, initialRoom.id, (lastRound?.round_number ?? 0) + 1, setup);
+      await broadcast('game_started', payload as unknown as Record<string, unknown>);
 
       // If we're coming back from the 'finished' state (host hit "Play Again"
       // on the Game Over screen), the room row still says 'finished' — flip it
