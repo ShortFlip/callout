@@ -4,6 +4,7 @@ import { planImport, textKey } from '@/lib/library/card-draft';
 import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
 import type { HeatRow } from '@/lib/library/heat';
 import { isScoredRound } from '@/lib/game/stats';
+import { loadMyRoomIds } from '@/lib/game/co-players';
 import { hostCardName, type HostDraft } from '@/lib/library/hosting';
 import type { Json } from '@/lib/supabase/types';
 import type { CardStyles, CardTemplate, SquareItem } from '@/types/card';
@@ -374,17 +375,7 @@ export async function patchCardLegends(cards: CardTemplate[], gameTagId: string,
 export async function loadHeatRows(ownerId: string): Promise<HeatRow[]> {
   const supabase = createClient();
   try {
-    const { data: mine, error: mineError } = await supabase
-      .from('game_players')
-      .select('games!game_players_game_id_fkey (room_id)')
-      .eq('player_id', ownerId);
-    if (mineError) throw mineError;
-
-    const roomIds = Array.from(new Set(
-      (mine ?? [])
-        .map((row) => (row.games as { room_id: string } | null)?.room_id)
-        .filter((id): id is string => !!id),
-    ));
+    const roomIds = await loadMyRoomIds(supabase, ownerId);
     if (roomIds.length === 0) return [];
 
     const rows: HeatRow[] = [];

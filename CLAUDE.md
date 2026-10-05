@@ -331,17 +331,6 @@ The first-written plan, kept verbatim in `docs/spec/`. Where it disagrees with t
 
 ---
 
-## Version history
-
-| PR | Shipped | What landed |
-|---|---|---|
-| #7 | 2026-09-08 | Rejoin + connection truth. Vitest; `useRealtimeRoom` handles every channel status with resubscribe backoff and a `connection` state; everyone's cards and marks load from `game_players` into an `others` store slice; landing Rejoin chip. |
-| #8 | 2026-09-08 | The Scoreboard game screen. Glass header with the room code and Copy link, a 608px hero board with the hot lane, a 300px rail of live miniatures, `bestLine`/`bestLineLabel`, the amber reconnecting bar, the SYNCING rail state, `--gold` in every theme, and the DEV-only `?state=` harness. |
-| #9 | 2026-09-08 | The bingo moment. `WinOverlay` retired for an in-flow gold `WinBanner`; the hero grid shrinks 608→520 and stays markable; per-winner fanfare and two-cannon confetti; gold rail cards with `1ST`/`2ND` pills and a gold winning line. |
-| #10 | 2026-09-08 | The item pool. A template holds more items than squares, so every round draws a fresh subset per player; `parseImport` splits newlines then commas and dedupes; count line and Save gate replace the old filled-squares widget. |
-| #11 | 2026-09-08 | Identity and aftermath. `players.claim_code` re-points a new PC at an existing player; `/history` groups rounds into nights with cancelled rounds shown as `No winner`; `/leaderboard` scoped to co-players with cancelled rounds excluded. |
-| #12 (this PR) | 2026-09-08 | Host controls and docs. `HostControls` moves into the game header so a round nobody wins is no longer a dead end; End Night cancels a winnerless final round so it never reaches the leaderboard; `isConnected` and other dead exports removed; CLAUDE.md and DESIGN.md brought back to reality. |
-
 ## Next Up
 
 Known gaps, deliberate or otherwise. None of these block a game night.

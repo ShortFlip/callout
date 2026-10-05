@@ -9,6 +9,7 @@ import { CardSplitWords } from '@/components/library/CardSplitWords';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { createClient } from '@/lib/supabase/client';
 import { buildGameSetup } from '@/lib/game/game-setup';
+import { createRound } from '@/lib/game/create-round';
 import { loadCoPlayerRecords } from '@/lib/game/co-players';
 import { cardSplit } from '@/lib/library/hosting';
 import { formatPattern } from '@/lib/achievements';
@@ -95,22 +96,7 @@ export function GameLobby({
 
       // Shared bootstrap: item filter + settings parse + call list (see game-setup.ts)
       const setup = buildGameSetup(template, room.settings);
-      const { seed, items, callList } = setup;
-
-      const { data: game, error: gameError } = await supabase
-        .from('games')
-        .insert({
-          room_id: room.id,
-          round_number: 1,
-          call_list: callList,
-          calls_made: 0,
-          seed,
-          status: 'active',
-        })
-        .select()
-        .single();
-
-      if (gameError || !game) throw gameError ?? new Error('Failed to create game');
+      const payload = await createRound(supabase, room.id, 1, setup);
 
       // Update room status to 'playing'. Clients transition via the game_started
       // broadcast below; a client that missed it (slept tab) also picks the
@@ -119,21 +105,7 @@ export function GameLobby({
       if (roomError) throw roomError;
 
       // Broadcast game_started — all clients (including host via self:true) initialize state
-      await onStartGame({
-        gameId: game.id,
-        seed,
-        roundNumber: 1,
-        callList,
-        templateItems: items,
-        boardSize: setup.boardSize,
-        freeSpace: setup.freeSpace,
-        shuffleMode: setup.shuffleMode,
-        winPatterns: setup.winPatterns,
-        gameMode: setup.gameMode,
-        cardStyles: setup.cardStyles,
-        // The DB's start time, so bingo times match what a refreshed tab restores.
-        startedAt: game.started_at,
-      });
+      await onStartGame(payload);
     } catch (err) {
       console.error('Failed to start game:', err);
       toast.error('Could not start the game. Try again.');

@@ -18,8 +18,6 @@ export type GameMode = 'honor' | 'traditional';
 export interface RoomSettings {
   winPatterns: WinPattern[];
   gameMode?: GameMode; // absent on legacy rooms → treat as 'honor'
-  autoCall: boolean;
-  callInterval: number; // seconds between auto-calls
 }
 
 // The game_started broadcast. The last three are optional for receivers because
