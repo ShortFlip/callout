@@ -164,6 +164,7 @@ squares/
 │   │
 │   ├── lib/
 │   │   ├── supabase/{client,server,types}.ts
+│   │   ├── supabase/paging.ts        # readAllPages(In): every row past the 1,000 cap
 │   │   ├── game/
 │   │   │   ├── shuffle.ts            # Fisher-Yates + column-locked; draws N² from the pool
 │   │   │   ├── win-detection.ts      # checkWin + bestLine/bestLineLabel
