@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import type { LeaderboardRecord } from '@/lib/game/stats';
+import { readAllPagesIn } from '@/lib/supabase/paging';
 
 /**
  * The rooms a player has played at least one round in. A room is a night, so
@@ -40,20 +41,25 @@ export async function loadCoPlayerRecords(myId: string): Promise<LeaderboardReco
   const roomIds = await loadMyRoomIds(supabase, myId);
   if (roomIds.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from('game_players')
-    .select(`
-      player_id, won, bingo_time_ms,
-      games!inner ( id, room_id, status, started_at ),
-      players!game_players_player_id_fkey (
-        display_name, avatar_url
-      )
-    `)
-    .in('games.room_id', roomIds);
-  if (error) throw error;
+  // Paged: a plain read stops at 1,000 rows without an error, and a group
+  // that plays every week passes that within a year.
+  const data = await readAllPagesIn(roomIds, (ids, from, to) =>
+    supabase
+      .from('game_players')
+      .select(`
+        player_id, won, bingo_time_ms,
+        games!inner ( id, room_id, status, started_at ),
+        players!game_players_player_id_fkey (
+          display_name, avatar_url
+        )
+      `)
+      .in('games.room_id', ids)
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
 
   const records: LeaderboardRecord[] = [];
-  for (const record of data ?? []) {
+  for (const record of data) {
     const p = record.players as { display_name: string; avatar_url: string | null } | null;
     if (!p) continue;
     const g = record.games as unknown as { id: string; room_id: string; status: string; started_at: string | null } | null;

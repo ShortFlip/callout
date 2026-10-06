@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { loadMyRoomIds } from '@/lib/game/co-players';
+import { readAllPagesIn } from '@/lib/supabase/paging';
 import { usePlayer } from '@/hooks/usePlayer';
 import { BingoBoard } from '@/components/board/BingoBoard';
 import { BoardLegend } from '@/components/board/BoardLegend';
@@ -105,31 +106,38 @@ function HistoryPageContent() {
       if (roomIds.length === 0) { setNights([]); setIsLoading(false); return; }
 
       // 2. Every row from every round of those rooms — mine and everyone
-      //    else's — in one go. `!inner` is what makes the room filter apply to
-      //    the parent row instead of merely nulling the embed.
-      const { data: rows, error } = await supabase
-        .from('game_players')
-        .select(`
-          id, player_id, marks, card_data, won, finish_position,
-          games!inner (
-            id, round_number, status, win_pattern, started_at, room_id,
-            rooms!games_room_id_fkey (
-              name, join_code,
-              card_templates!rooms_template_id_fkey (
-                name, board_size, styles, free_space
-              )
-            )
-          ),
-          players!game_players_player_id_fkey ( id, display_name, avatar_url )
-        `)
-        .in('games.room_id', roomIds);
-
-      if (error) { console.error(error); setIsLoading(false); return; }
+      //    else's, paged past the 1,000-row cap. `!inner` is what makes the
+      //    room filter apply to the parent row instead of merely nulling the embed.
+      let rows;
+      try {
+        rows = await readAllPagesIn(roomIds, (ids, from, to) =>
+          supabase
+            .from('game_players')
+            .select(`
+              id, player_id, marks, card_data, won, finish_position,
+              games!inner (
+                id, round_number, status, win_pattern, started_at, room_id,
+                rooms!games_room_id_fkey (
+                  name, join_code,
+                  card_templates!rooms_template_id_fkey (
+                    name, board_size, styles, free_space
+                  )
+                )
+              ),
+              players!game_players_player_id_fkey ( id, display_name, avatar_url )
+            `)
+            .in('games.room_id', ids)
+            .order('id', { ascending: true })
+            .range(from, to),
+        );
+      } catch (error) {
+        console.error(error); setIsLoading(false); return;
+      }
 
       const byRoom = new Map<string, Night>();
       const roundsByGame = new Map<string, Round>();
 
-      (rows ?? []).forEach((row) => {
+      rows.forEach((row) => {
         const game = row.games as unknown as GameEmbed | null;
         const p = row.players as unknown as
           { id: string; display_name: string; avatar_url: string | null } | null;

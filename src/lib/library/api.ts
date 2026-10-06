@@ -5,6 +5,7 @@ import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
 import type { HeatRow } from '@/lib/library/heat';
 import { isScoredRound } from '@/lib/game/stats';
 import { loadMyRoomIds } from '@/lib/game/co-players';
+import { PAGE, chunks, readAllPagesIn } from '@/lib/supabase/paging';
 import { hostCardName, type HostDraft } from '@/lib/library/hosting';
 import type { Json } from '@/lib/supabase/types';
 import type { CardStyles, CardTemplate, SquareItem } from '@/types/card';
@@ -36,12 +37,6 @@ export class LibraryError extends Error {
 /** Postgres unique_violation: the (owner, lower(name|text)) indexes. */
 const UNIQUE_VIOLATION = '23505';
 
-/** PostgREST returns at most 1,000 rows per request; page through anything bigger. */
-const PAGE = 1000;
-
-/** Ids per `.in()` filter, so a bulk action on hundreds of rows never builds an overlong URL. */
-const CHUNK = 100;
-
 function logDev(context: string, error: unknown): void {
   if (process.env.NODE_ENV !== 'production') console.error(`[library] ${context}:`, error);
 }
@@ -54,12 +49,6 @@ function isUnique(error: unknown): boolean {
 function fail(context: string, message: string, error?: unknown): never {
   logDev(context, error ?? message);
   throw new LibraryError(message, error);
-}
-
-function chunks<T>(list: T[], size = CHUNK): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
-  return out;
 }
 
 /** An update or delete that came back short was blocked by RLS (or the rows are gone). */
@@ -378,24 +367,20 @@ export async function loadHeatRows(ownerId: string): Promise<HeatRow[]> {
     const roomIds = await loadMyRoomIds(supabase, ownerId);
     if (roomIds.length === 0) return [];
 
+    const data = await readAllPagesIn(roomIds, (ids, from, to) =>
+      supabase
+        .from('game_players')
+        .select('id, card_data, marks, games!inner ( room_id, status )')
+        .in('games.room_id', ids)
+        .order('id', { ascending: true })
+        .range(from, to),
+    );
     const rows: HeatRow[] = [];
-    for (const ids of chunks(roomIds)) {
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
-          .from('game_players')
-          .select('id, card_data, marks, games!inner ( room_id, status )')
-          .in('games.room_id', ids)
-          .order('id', { ascending: true })
-          .range(from, from + PAGE - 1);
-        if (error) throw error;
-        for (const row of data ?? []) {
-          const game = row.games as unknown as { status: string } | null;
-          const played = Array.isArray(row.marks) && row.marks.length > 0;
-          if (!isScoredRound(game?.status) && !(game?.status === 'active' && played)) continue;
-          rows.push({ cardData: row.card_data, marks: row.marks });
-        }
-        if (!data || data.length < PAGE) break;
-      }
+    for (const row of data) {
+      const game = row.games as unknown as { status: string } | null;
+      const played = Array.isArray(row.marks) && row.marks.length > 0;
+      if (!isScoredRound(game?.status) && !(game?.status === 'active' && played)) continue;
+      rows.push({ cardData: row.card_data, marks: row.marks });
     }
     return rows;
   } catch (error) {
