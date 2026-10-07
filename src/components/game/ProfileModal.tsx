@@ -21,6 +21,7 @@ import {
 import { ThemePicker } from './ThemePicker';
 import { PlayerStats } from '@/components/stats/PlayerStats';
 import { SECTION_LABEL } from '@/lib/label';
+import { avatarPath } from '@/lib/storage-url';
 
 interface ProfileModalProps {
   open: boolean;
@@ -82,10 +83,10 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
     setIsClaiming(true);
     try {
       const supabase = createClient();
+      // An RPC, not a table read: claim codes are no longer readable, so a
+      // code can only be checked one at a time, never listed.
       const { data, error } = await supabase
-        .from('players')
-        .select('id, browser_id, display_name')
-        .eq('claim_code', code)
+        .rpc('claim_player', { p_claim_code: code })
         .maybeSingle();
 
       if (error) throw error;
@@ -125,9 +126,12 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
 
       // Upload new avatar if one was selected
       if (pendingFile) {
-        const ext = pendingFile.name.split('.').pop() ?? 'jpg';
-        // Use player ID as filename so re-uploads replace the old file
-        const path = `${player.id}.${ext}`;
+        // One fixed name per player, in a folder named by the player id: the
+        // storage policy only lets you write under your own id, and a fixed
+        // name (no extension from the filename) means a JPG after a PNG
+        // replaces the file instead of orphaning the old one. The stored
+        // content type is what the browser goes by.
+        const path = avatarPath(player.id);
 
         const { error: uploadError } = await supabase.storage
           .from('avatars')
