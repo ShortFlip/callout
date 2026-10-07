@@ -7,9 +7,11 @@ import { createClient } from '@/lib/supabase/client';
 import { generateCard } from '@/lib/game/shuffle';
 import { loadGamePlayers } from '@/lib/game/game-players';
 import { useGameStore } from '@/stores/gameStore';
-import { enqueuePending, pendingKey, type PendingBroadcast } from '@/lib/realtime/pending-key';
+import { enqueuePending, pendingKey, shouldFlushPending, type PendingBroadcast } from '@/lib/realtime/pending-key';
 import { CATCH_UP_INTERVAL_MS } from '@/lib/realtime/catch-up';
 import { createChannelDropper } from '@/lib/realtime/drop-channel';
+import { ensureOwnRow } from '@/lib/game/own-row';
+import { withRetry } from '@/lib/utils/retry';
 import type { Player } from '@/types/player';
 import type { WinPattern, GameStartedPayload } from '@/types/game';
 
@@ -120,6 +122,12 @@ export function useRealtimeRoom(
   useEffect(() => {
     onStyleChangedRef.current = onStyleChanged;
   }, [onStyleChanged]);
+  // The status the page rendered, readable from inside the channel callbacks
+  // without resubscribing when it changes.
+  const roomStatusRef = useRef(roomStatus);
+  useEffect(() => {
+    roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
 
   const { initGame, setMyCard, setCalledCount, addWinner } = useGameStore();
 
@@ -140,13 +148,13 @@ export function useRealtimeRoom(
      * Send everything that failed while we were down, oldest first. Stops at
      * the first failure so order is kept and the rest wait for the next
      * SUBSCRIBED. Anything for a round we have since left is dropped — a
-     * receiver would ignore it anyway.
+     * receiver would ignore it anyway — but a queued game_started for a round
+     * newer than ours goes out (shouldFlushPending), or the room never starts.
      */
     async function flushPending(channel: RealtimeChannel) {
       while (pendingRef.current.length > 0 && !cancelled) {
         const next = pendingRef.current[0];
-        const forGame = next.payload.gameId;
-        if (typeof forGame === 'string' && forGame !== useGameStore.getState().gameId) {
+        if (!shouldFlushPending(next, useGameStore.getState())) {
           pendingRef.current = pendingRef.current.filter((p) => p !== next);
           continue;
         }
@@ -155,6 +163,39 @@ export function useRealtimeRoom(
         // By identity: a newer copy may have replaced this key meanwhile.
         pendingRef.current = pendingRef.current.filter((p) => p !== next);
       }
+    }
+
+    /**
+     * SUBSCRIBED with no round in the store: the lobby, a cold Game Over, or a
+     * rejoin still restoring. A round may have started while our socket was
+     * down, and both its game_started and the games INSERT are gone, so the
+     * DB is the only place left that knows. Same answers as the live paths: a
+     * room status the page did not render re-renders it (room_closed), and a
+     * room still playing asks for the round restore, which no-ops once the
+     * store holds the latest round.
+     */
+    async function catchUpWithoutRound() {
+      const { data: room, error } = await supabase
+        .from('rooms')
+        .select('status')
+        .eq('id', roomId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        // Logged only: the next SUBSCRIBED (or the postgres_changes listener)
+        // gets another chance, and a toast here would fire on every reconnect.
+        console.error('Failed to check the room after reconnecting:', error);
+        return;
+      }
+      const status = room?.status;
+      if (!status) return;
+      // undefined: the caller rendered no status, so there is nothing to compare.
+      if (roomStatusRef.current !== undefined && status !== roomStatusRef.current) {
+        lastRoomStatusRef.current = status;
+        onRoomClosedRef.current?.();
+        return;
+      }
+      if (status === 'playing') onRoundChangedRef.current?.();
     }
 
     function subscribe(): RealtimeChannel {
@@ -218,23 +259,21 @@ export function useRealtimeRoom(
           );
           setMyCard(card);
 
-          // Persist this player's game_players record so wins can be verified
-          // and the DB has a record of who played. ignoreDuplicates makes this
-          // insert-only: if the row already exists (a rejoin, a replayed
-          // broadcast) its marks and win must survive, never reset to [] / false.
-          const { error } = await supabase.from('game_players').upsert(
-            {
-              game_id: payload.gameId,
-              player_id: self.id,
-              card_data: card as unknown as import('@/lib/supabase/types').Json,
-              marks: [],
-              won: false,
-            },
-            { onConflict: 'game_id,player_id', ignoreDuplicates: true },
-          );
-          if (error) {
-            console.error('Failed to create game_players record:', error);
-            // Generic copy — never surface raw DB error text to players.
+          // Persist this player's game_players record: it is what a refresh
+          // restores the board from and what other tabs replay the win from.
+          // Insert-only (ensureOwnRow), so an existing row's marks and win
+          // survive a rejoin or a replayed broadcast. Retried on the shared
+          // backoff, because one lost create used to strand every later write.
+          // A round we have since left (or an unmounted room) stops retrying.
+          const created = await withRetry<null>(async () => {
+            if (cancelled || useGameStore.getState().gameId !== payload.gameId) return { ok: true, value: null };
+            return (await ensureOwnRow(supabase, { gameId: payload.gameId, playerId: self.id }, card))
+              ? { ok: true, value: null }
+              : { ok: false };
+          });
+          if (!created.ok) {
+            // Generic copy — never surface raw DB error text to players. The
+            // marks save also recreates the row, so this is not the last word.
             toast.error('Your card could not be saved. Stats may be missing.');
           }
           if (cancelled) return;
@@ -380,7 +419,10 @@ export function useRealtimeRoom(
             if (cancelled) return;
             // Anything we missed while the socket was down is in the DB.
             const { gameId } = useGameStore.getState();
-            if (!gameId) return;
+            if (!gameId) {
+              await catchUpWithoutRound();
+              return;
+            }
             // A round started while we were away replaces this one entirely;
             // reloading the old round's boards would leave us marking a dead row.
             const { data: latest, error: latestError } = await supabase

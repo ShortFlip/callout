@@ -36,3 +36,32 @@ export function enqueuePending(queue: readonly PendingBroadcast[], event: string
   const key = pendingKey(event, payload);
   return [...queue.filter((p) => p.key !== key), { key, event, payload }];
 }
+
+/** The store's view of the round, as far as the reconnect flush cares. */
+export interface FlushRound {
+  gameId: string | null;
+  gameStartedAt: string | null;
+}
+
+/**
+ * Should a queued broadcast still go out on reconnect?
+ *
+ * Anything tagged with a round other than the one in the store is stale and
+ * dropped — a receiver would ignore it anyway. The exception is game_started:
+ * it carries the NEXT round, so it naturally differs from the store's (null in
+ * the lobby). Dropping it left a host whose Start went out mid-drop, and every
+ * tab waiting on it, in the lobby (audit 2026-10-07). It goes out unless it is
+ * older than the round we are on; "no round" counts as older than any round.
+ */
+export function shouldFlushPending(entry: PendingBroadcast, round: FlushRound): boolean {
+  const forGame = entry.payload.gameId;
+  if (typeof forGame !== 'string' || forGame === round.gameId) return true;
+  if (entry.event !== 'game_started') return false;
+  if (!round.gameId) return true;
+  const queuedAt = Date.parse(String(entry.payload.startedAt ?? ''));
+  const currentAt = Date.parse(round.gameStartedAt ?? '');
+  // Without both start times we cannot order the two rounds; sending a stale
+  // start would drag every tab back a round, so keep the round we are on.
+  if (Number.isNaN(queuedAt) || Number.isNaN(currentAt)) return false;
+  return queuedAt > currentAt;
+}
