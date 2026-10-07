@@ -1,6 +1,6 @@
 'use client';
 
-import { SquaresMark } from '@/components/layout/SquaresMark';
+import { CalloutMark } from '@/components/layout/CalloutMark';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, ArrowRight, LogIn, Crown, Ticket } from 'lucide-react';
@@ -99,7 +99,7 @@ function HomePageContent() {
       {/* ── Hero band: marquee left, the crew's live numbers right ── */}
       <section className="glass grid shrink-0 grid-cols-[1fr_minmax(0,520px)] items-center gap-8 rounded-2xl px-8 py-6">
         <div className="flex min-w-0 items-center gap-6">
-          <SquaresMark size={88} />
+          <CalloutMark size={88} />
           <div className="min-w-0 space-y-2">
             <h1 className="font-display text-7xl font-black leading-none tracking-tight">SQUARES</h1>
             <p className="text-muted-foreground">Real-time bingo for your friend group.</p>

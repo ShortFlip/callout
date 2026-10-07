@@ -35,7 +35,7 @@ const jetbrainsMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Squares',
+  title: 'Callout',
   description: 'Real-time multiplayer bingo for your friend group.',
 };
 

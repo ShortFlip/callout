@@ -15,7 +15,7 @@ const ROOM_READ_RETRY_DELAYS_MS = [300, 700];
 
 export async function generateMetadata({ params }: RoomPageProps) {
   const { code } = await params;
-  return { title: `Room ${code.toUpperCase()} — Squares` };
+  return { title: `Room ${code.toUpperCase()} — Callout` };
 }
 
 export default async function RoomPage({ params }: RoomPageProps) {

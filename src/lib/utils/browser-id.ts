@@ -1,4 +1,4 @@
-const BROWSER_ID_KEY = 'squares:browser_id';
+const BROWSER_ID_KEY = 'callout:browser_id';
 
 /**
  * Returns the persistent browser identity UUID, creating it if this is the

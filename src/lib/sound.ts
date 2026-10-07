@@ -21,12 +21,12 @@ function getCtx(): AudioContext | null {
 
 export function isMuted(): boolean {
   if (typeof window === 'undefined') return false;
-  return localStorage.getItem('squares:mute') === 'true';
+  return localStorage.getItem('callout:mute') === 'true';
 }
 
 export function toggleMute(): boolean {
   const next = !isMuted();
-  localStorage.setItem('squares:mute', String(next));
+  localStorage.setItem('callout:mute', String(next));
   return next;
 }
 

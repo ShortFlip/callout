@@ -1,4 +1,4 @@
-# DESIGN.md — Squares
+# DESIGN.md — Callout
 
 Design intent for the Squares bingo app. Part 1 is settled and binding. Part 2
 is deliberately incomplete: follow its guardrails, do not fill gaps with
@@ -14,7 +14,7 @@ below is a guess rather than his words, it is marked *(guess)*.
 ### The moment
 
 Three to five friends in a Discord call, playing Call of Duty or Rocket League
-on the main monitor. Squares lives in a browser window on the **second
+on the main monitor. Callout lives in a browser window on the **second
 monitor, always visible**, possibly sharing that monitor with Discord. Nobody
 is looking at it most of the time. When something on the card happens, someone
 calls it out on voice, everyone glances over, marks the square, and goes back
