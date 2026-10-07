@@ -29,6 +29,14 @@ That starts the mock (`scripts/mock-supabase/server.mjs`) and
 - Mock only: `node scripts/mock-supabase/server.mjs`.
 - Reset the data without restarting: `curl -X POST http://127.0.0.1:54399/__mock/reset`.
   Dump it: `http://127.0.0.1:54399/__mock/state`.
+- Live-gate hooks (opt-in, nothing changes unless a gate calls them):
+  - `POST /__mock/fail` with `{"method":"POST","table":"game_players","count":1}`
+    makes the next `count` matching REST requests answer 503, like a blip.
+    `{"count":0}` clears every staged failure.
+  - `POST /__mock/drop` with `{"presenceKey":"<player id>","holdMs":8000}`
+    terminates that player's realtime sockets and refuses their channel joins
+    for `holdMs`, so the tab misses everything sent meanwhile and then
+    reconnects through the app's own backoff.
 
 Options (environment variables for `npm run dev:mock`):
 

@@ -223,6 +223,10 @@ export const useGameStore = create<GameState>((set, get) => ({
    * Apply a live mark_updated broadcast. Creates a placeholder entry if the
    * broadcast arrives before the fetch, so no mark is ever dropped; the card
    * fills in when loadGamePlayers lands.
+   *
+   * The placeholder is unsynced: with no card and a stand-in name, a real
+   * "N / 25" beside a blank board is a lie, so the rail shows SYNCING until
+   * the row is read (DESIGN.md, Partial state). setOthers then replaces it.
    */
   setOtherMarks: (playerId, marks) => {
     const { others } = get();
@@ -240,7 +244,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               marks,
               won: false,
               finishPosition: null,
-              synced: true,
+              synced: false,
             },
       },
     });

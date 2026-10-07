@@ -561,6 +561,14 @@ async function handleRest(req, res, url) {
   }
 
   if (!db[table]) throw new PgError(404, '42P01', `relation "public.${table}" does not exist`);
+  // Opt-in failure staged by POST /__mock/fail (live gates only).
+  const staged = failures.find((f) => f.count > 0 && f.method === req.method && f.table === table);
+  if (staged) {
+    staged.count--;
+    await readBody(req);
+    log(`fail: staged ${req.method} ${table} failure (${staged.count} left)`);
+    throw new PgError(503, 'MOCK503', 'mock-supabase staged failure');
+  }
   const prefer = parsePrefer(req);
   const params = url.searchParams;
 
@@ -690,6 +698,15 @@ async function handleStorage(req, res, url) {
 
 // ── Realtime (Phoenix channels over ws, protocol vsn 2.0.0) ──────────────────
 
+/**
+ * Staged failures for live gates: the next `count` REST requests matching
+ * method + table answer 503, the way a network blip or an overloaded
+ * PostgREST would. Set by POST /__mock/fail; empty unless a gate asks.
+ */
+const failures = [];
+/** presenceKey → epoch ms until which that player's channel joins are refused (POST /__mock/drop). */
+const heldKeys = new Map();
+
 /** topic → Map<socket, { joinRef, selfBroadcast, presenceKey, pgBindings }> */
 const topics = new Map();
 /** topic → Map<presenceKey, metas[]> */
@@ -805,6 +822,12 @@ function handleSocketMessage(socket, data, isBinary) {
     if (!topics.has(topic)) topics.set(topic, new Map());
     if (!presence.has(topic)) presence.set(topic, new Map());
     const presenceKey = config.presence?.key || null;
+    // A player held offline by POST /__mock/drop cannot rejoin until the hold
+    // ends, so they miss every broadcast and postgres_changes in between.
+    if (presenceKey && (heldKeys.get(presenceKey) ?? 0) > Date.now()) {
+      log(`WS  join refused for held ${presenceKey}`);
+      return reply(socket, joinRef, ref, topic, 'error', { reason: 'mock-supabase hold' });
+    }
     topics.get(topic).set(socket, { joinRef, selfBroadcast: !!config.broadcast?.self, presenceKey, pgBindings });
     reply(socket, joinRef, ref, topic, 'ok', { postgres_changes: pgBindings });
     // Phoenix presence needs a full state before it applies diffs.
@@ -922,6 +945,27 @@ const server = http.createServer(async (req, res) => {
       return send(req, res, 200, { ok: true });
     }
     if (url.pathname === '/__mock/state') return send(req, res, 200, db);
+    if (url.pathname === '/__mock/fail' && req.method === 'POST') {
+      const { method, table, count = 1 } = parseJson(await readBody(req)) ?? {};
+      if (count <= 0) failures.length = 0;
+      else failures.push({ method: String(method).toUpperCase(), table, count });
+      log(`fail: next ${count} ${method} ${table}`);
+      return send(req, res, 200, { ok: true, failures });
+    }
+    if (url.pathname === '/__mock/drop' && req.method === 'POST') {
+      const { presenceKey, holdMs = 0 } = parseJson(await readBody(req)) ?? {};
+      heldKeys.set(presenceKey, Date.now() + holdMs);
+      let dropped = 0;
+      for (const members of topics.values()) {
+        for (const [socket, member] of members) {
+          if (member.presenceKey !== presenceKey) continue;
+          socket.terminate();
+          dropped++;
+        }
+      }
+      log(`drop: ${presenceKey} (${dropped} sockets), joins refused for ${holdMs}ms`);
+      return send(req, res, 200, { ok: true, dropped });
+    }
     if (url.pathname === '/' || url.pathname === '/__mock/health') return send(req, res, 200, { ok: true, name: 'mock-supabase' });
     return send(req, res, 404, { message: `mock-supabase has no route for ${req.method} ${url.pathname}` });
   } catch (err) {

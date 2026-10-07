@@ -26,6 +26,7 @@ import { checkWin, freeIndexOf } from '@/lib/game/win-detection';
 import { shouldRetractWin } from '@/lib/game/retract';
 import { withRetry, RETRY_DELAYS_MS } from '@/lib/utils/retry';
 import { resolveRestoredCard, computeBingoTimeMs } from '@/lib/game/restore';
+import { ensureOwnRow, writeOwnRow } from '@/lib/game/own-row';
 import type { Json, Tables } from '@/lib/supabase/types';
 import type { Room, WinPattern, GameStartedPayload } from '@/types/game';
 import type { SquareItem } from '@/types/card';
@@ -76,6 +77,16 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       (window as unknown as { __squares?: unknown }).__squares = useGameStore;
     }
   }, []);
+
+  // The game store is global and outlives this component, so leaving a room
+  // (Game Over → Home → another room, all client-side navigation) used to
+  // carry room A's round into room B: the rejoin and lobby effects below skip
+  // when a gameId is already set, so B showed A's board and marks went to A's
+  // row. Reset on unmount, not mount: by the time the next room's RoomClient
+  // renders, the store is already empty, so no child ever sees A's round. A
+  // same-room router.refresh() keeps this component mounted and the store
+  // intact; a full reload starts empty anyway.
+  useEffect(() => () => useGameStore.getState().resetGame(), []);
 
   // Remember this room for the landing page's Rejoin chip, and forget it once
   // the night is over. DESIGN.md: "Never make me type a room code I was
@@ -347,14 +358,17 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     }
 
     // Player is joining this round for the first time (joined the room after
-    // it started, or missed game_started). ignoreDuplicates: if a row appeared
-    // since the read (the broadcast path raced us), it stays untouched.
-    const { error: insertError } = await supabase.from('game_players').upsert(
-      { game_id: game.id, player_id: playerId, card_data: restored.card as unknown as Json, marks: [], won: false },
-      { onConflict: 'game_id,player_id', ignoreDuplicates: true },
-    );
-    if (insertError) {
-      console.error('Failed to create game_players on reconnect:', insertError);
+    // it started, or missed game_started). Insert-only (ensureOwnRow): if a
+    // row appeared since the read (the broadcast path raced us), it stays
+    // untouched. Retried like the game_started create; a round we have since
+    // left stops retrying.
+    const created = await withRetry<null>(async () => {
+      if (useGameStore.getState().gameId !== game.id) return { ok: true, value: null };
+      return (await ensureOwnRow(supabase, { gameId: game.id, playerId }, restored.card))
+        ? { ok: true, value: null }
+        : { ok: false };
+    });
+    if (!created.ok) {
       // Generic copy — never surface raw DB error text to players.
       toast.error('Could not join this round. Try refreshing.');
     }
@@ -397,23 +411,10 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     void broadcast('mark_updated', { gameId: useGameStore.getState().gameId, playerId, marks });
 
     // Persist marks (debounced) so a refresh mid-game can restore them.
-    // Reads the latest marks from the store at fire time — rapid taps collapse
-    // into one write with the final state.
+    // Rapid taps collapse into one save of the final state.
     if (persistMarksTimer.current) clearTimeout(persistMarksTimer.current);
     persistMarksTimer.current = setTimeout(() => {
-      const { gameId: gid, myMarks } = useGameStore.getState();
-      if (!gid) return;
-      createClient()
-        .from('game_players')
-        .update({ marks: myMarks })
-        .match({ game_id: gid, player_id: playerId })
-        .then(({ error }) => {
-          if (error) {
-            console.error('Failed to persist marks:', error);
-            // Marks still live in the store, but a refresh would lose them.
-            toast.error('Your marks could not be saved. Avoid refreshing.');
-          }
-        });
+      saveMarks(playerId).catch((err) => console.error('Marks save failed:', err));
     }, 500);
 
     // An early bingo that backed off: I am a winner and these marks no longer
@@ -427,6 +428,52 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       freeIndex: state.freeSpace ? freeIndexOf(state.myCard) : null,
     })) {
       handleBingoRetract().catch((err) => console.error('Bingo retraction failed:', err));
+    }
+  }
+
+  // One marks save at a time. A save that is still retrying when the next tap
+  // lands is not doubled up: the tap is remembered and one more save runs once
+  // the current one ends. Each attempt reads the latest marks from the store,
+  // so the last write to land is always the newest board, never an older one.
+  const savingMarksRef = useRef(false);
+  const saveMarksAgainRef = useRef(false);
+
+  async function saveMarks(playerId: string) {
+    if (savingMarksRef.current) {
+      saveMarksAgainRef.current = true;
+      return;
+    }
+    savingMarksRef.current = true;
+    try {
+      do {
+        saveMarksAgainRef.current = false;
+        await saveMarksOnce(playerId);
+      } while (saveMarksAgainRef.current);
+    } finally {
+      savingMarksRef.current = false;
+    }
+  }
+
+  async function saveMarksOnce(playerId: string) {
+    const gid = useGameStore.getState().gameId;
+    if (!gid) return;
+    const supabase = createClient();
+    // Silent retries: a blip is ridden out without a word (never confirm a
+    // mark, DESIGN.md). writeOwnRow proves the row was touched and recreates
+    // a row whose first create was lost, so a save can no longer "succeed"
+    // against nothing.
+    const result = await withRetry<null>(async () => {
+      const { gameId: now, myMarks, myCard } = useGameStore.getState();
+      // The round moved on (or we left the room): this board is gone.
+      if (now !== gid) return { ok: true, value: null };
+      return (await writeOwnRow(supabase, { gameId: gid, playerId }, { marks: myMarks }, myCard))
+        ? { ok: true, value: null }
+        : { ok: false };
+    });
+    if (!result.ok) {
+      // Marks still live in the store, but a refresh would lose them. Generic
+      // copy — never raw DB text.
+      toast.error('Your marks could not be saved. Avoid refreshing.');
     }
   }
 
@@ -466,16 +513,19 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     const playerId = player.id;
     const isFirstWinner = currentWinners.length === 0;
     queueWinWrite(async () => {
-      const result = await withRetry<null>(async () => {
-        const { error } = await supabase.from('game_players').update({
+      // writeOwnRow, not a bare update: an update that matches 0 rows reports
+      // success, and a win written nowhere is dropped by every other tab once
+      // its catch-up grace runs out. A missing row is recreated, then won.
+      const result = await withRetry<null>(async () => (
+        (await writeOwnRow(supabase, { gameId: gid, playerId }, {
           won: true,
           marks: myMarks,
           finish_position: finishPosition,
           bingo_time_ms: bingoTimeMs,
-        }).match({ game_id: gid, player_id: playerId });
-        if (error) console.error('Failed to persist win:', error);
-        return error ? { ok: false } : { ok: true, value: null };
-      });
+        }, myCard))
+          ? { ok: true, value: null }
+          : { ok: false }
+      ));
       if (!result.ok) toast.error('Your win was announced but not recorded in stats.');
 
       // Update game status on first winner

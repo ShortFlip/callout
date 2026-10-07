@@ -158,3 +158,64 @@ describe('removeWinner', () => {
     expect(useGameStore.getState().winners.map((w) => w.playerId)).toEqual(['amy']);
   });
 });
+
+describe('setOtherMarks', () => {
+  it('creates an unsynced placeholder when the broadcast beats the fetch', () => {
+    // A synced placeholder showed a real "3 / 25" beside a blank board.
+    useGameStore.getState().setOtherMarks('bob', [0, 1, 2]);
+    expect(useGameStore.getState().others.bob).toMatchObject({ synced: false, marks: [0, 1, 2], card: [] });
+  });
+
+  it('keeps a synced board synced and only moves its marks', () => {
+    const store = useGameStore.getState();
+    store.setOthers([other('bob', { synced: true, card, marks: [0] })]);
+    store.setOtherMarks('bob', [0, 6]);
+    expect(useGameStore.getState().others.bob).toMatchObject({ synced: true, marks: [0, 6] });
+    expect(useGameStore.getState().others.bob.card).toHaveLength(1);
+  });
+
+  it('lets the DB read replace the placeholder', () => {
+    const store = useGameStore.getState();
+    store.setOtherMarks('bob', [4]);
+    store.setOthers([other('bob', { synced: true, card, marks: [4] })]);
+    expect(useGameStore.getState().others.bob).toMatchObject({ synced: true, displayName: 'bob' });
+  });
+});
+
+describe('resetGame', () => {
+  it("clears the last room's round so the next room starts empty", () => {
+    // RoomClient resets on unmount: room A's gameId used to make room B's
+    // rejoin skip and show A's board.
+    const store = useGameStore.getState();
+    store.initGame({
+      gameId: 'room-a-round',
+      seed: 's',
+      roundNumber: 3,
+      callList: [1, 2],
+      templateItems: card,
+      boardSize: 5,
+      freeSpace: true,
+      winPatterns: ['row'],
+      startedAt: '2026-10-07T00:00:00.000Z',
+    });
+    store.setMyCard(card);
+    store.setMyMarks([0, 1]);
+    store.setHasClaimed(true);
+    store.addWinner({ playerId: 'me', displayName: 'Me', pattern: 'row', finishPosition: 1 });
+    store.setOthers([other('bob', { synced: true, card, marks: [0] })]);
+
+    useGameStore.getState().resetGame();
+
+    const after = useGameStore.getState();
+    expect(after).toMatchObject({
+      gameId: null,
+      roundNumber: 0,
+      myCard: [],
+      myMarks: [],
+      hasClaimed: false,
+      winners: [],
+      others: {},
+      gameStartedAt: null,
+    });
+  });
+});
