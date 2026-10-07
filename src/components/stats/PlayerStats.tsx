@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { computeAchievements, formatTime, formatPattern } from '@/lib/achievements';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
@@ -8,6 +8,8 @@ import { isScoredRound } from '@/lib/game/stats';
 import type { Achievement } from '@/lib/achievements';
 import { SECTION_LABEL } from '@/lib/label';
 import { SkeletonRows } from '@/components/ui/skeleton-rows';
+import { LoadError } from '@/components/layout/LoadError';
+import { retryRead } from '@/lib/utils/retry';
 
 interface StatsData {
   totalGames: number;
@@ -28,59 +30,77 @@ interface PlayerStatsProps {
 export function PlayerStats({ playerId, displayName, avatarUrl, compact }: PlayerStatsProps) {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Also Try Again's handler, so it lives outside the effect.
+  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    let raw;
+    try {
+      raw = await retryRead(async () => {
+        const { data, error } = await createClient()
+          .from('game_players')
+          .select('won, bingo_time_ms, games!game_players_game_id_fkey(win_pattern, status)')
+          .eq('player_id', playerId);
+        if (error) throw error;
+        return data;
+      });
+    } catch (error) {
+      // A failed read says so (2026-10-07 audit) rather than a false "0 games"
+      // or, as it used to, nothing at all.
+      console.error('Failed to load player stats:', error);
+      if (isCurrent()) { setLoadFailed(true); setIsLoading(false); }
+      return;
+    }
+    if (!isCurrent()) return;
+
+    // Only won rounds are played rounds (cancelled and never-closed
+    // 'active' rounds are not) — the same isScoredRound rule the
+    // leaderboard applies, so the two screens never disagree.
+    const data = raw.filter(
+      (r) => isScoredRound((r.games as { status: string } | null)?.status),
+    );
+
+    const totalGames = data.length;
+    const wins = data.filter((r) => r.won);
+    const totalWins = wins.length;
+
+    const times = wins
+      .map((r) => r.bingo_time_ms)
+      .filter((t): t is number => t !== null);
+    const bestTimeMs = times.length > 0 ? Math.min(...times) : null;
+
+    // Count wins per pattern to find the most common
+    const patternCounts: Record<string, number> = {};
+    wins.forEach((r) => {
+      const p = (r.games as { win_pattern: string | null } | null)?.win_pattern;
+      if (p) patternCounts[p] = (patternCounts[p] ?? 0) + 1;
+    });
+    const topPattern = Object.entries(patternCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    const winPatterns = wins
+      .map((r) => (r.games as { win_pattern: string | null } | null)?.win_pattern)
+      .filter((p): p is string => !!p);
+
+    const achievements = computeAchievements({
+      wins: totalWins,
+      games: totalGames,
+      bestTimeMs,
+      winPatterns,
+    });
+
+    setStats({ totalGames, totalWins, bestTimeMs, topPattern, achievements });
+    setLoadFailed(false);
+    setIsLoading(false);
+  }, [playerId]);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from('game_players')
-      .select('won, bingo_time_ms, games!game_players_game_id_fkey(win_pattern, status)')
-      .eq('player_id', playerId)
-      .then(({ data: raw, error }) => {
-        // A failed read shows no stats rather than a false "0 games"; log it
-        // so it isn't silently swallowed.
-        if (error) console.error('Failed to load player stats:', error);
-        if (!raw) { setIsLoading(false); return; }
-
-        // Only won rounds are played rounds (cancelled and never-closed
-        // 'active' rounds are not) — the same isScoredRound rule the
-        // leaderboard applies, so the two screens never disagree.
-        const data = raw.filter(
-          (r) => isScoredRound((r.games as { status: string } | null)?.status),
-        );
-
-        const totalGames = data.length;
-        const wins = data.filter((r) => r.won);
-        const totalWins = wins.length;
-
-        const times = wins
-          .map((r) => r.bingo_time_ms)
-          .filter((t): t is number => t !== null);
-        const bestTimeMs = times.length > 0 ? Math.min(...times) : null;
-
-        // Count wins per pattern to find the most common
-        const patternCounts: Record<string, number> = {};
-        wins.forEach((r) => {
-          const p = (r.games as { win_pattern: string | null } | null)?.win_pattern;
-          if (p) patternCounts[p] = (patternCounts[p] ?? 0) + 1;
-        });
-        const topPattern = Object.entries(patternCounts)
-          .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-
-        const winPatterns = wins
-          .map((r) => (r.games as { win_pattern: string | null } | null)?.win_pattern)
-          .filter((p): p is string => !!p);
-
-        const achievements = computeAchievements({
-          wins: totalWins,
-          games: totalGames,
-          bestTimeMs,
-          winPatterns,
-        });
-
-        setStats({ totalGames, totalWins, bestTimeMs, topPattern, achievements });
-        setIsLoading(false);
-      });
-  }, [playerId]);
+    let cancelled = false;
+    // load() only sets state after its read resolves, never synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(() => !cancelled);
+    return () => { cancelled = true; };
+  }, [load]);
 
   if (isLoading) {
     return (
@@ -91,6 +111,10 @@ export function PlayerStats({ playerId, displayName, avatarUrl, compact }: Playe
         rowClassName="h-[60px]"
       />
     );
+  }
+
+  if (loadFailed) {
+    return <LoadError layout="row" title="Couldn't Load Your Stats" onRetry={() => load()} />;
   }
 
   if (!stats) return null;

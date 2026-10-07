@@ -38,3 +38,35 @@ export async function withRetry<T>(
   }
   return result;
 }
+
+/**
+ * A page's own read gets one more try before it says "couldn't load". Only
+ * one, and short: supabase-js already retries a GET three times (~7 s) on a
+ * 503/520 or a network error, so this layer only covers what it does not
+ * (a 500, a throw outside the fetch). More here would multiply the wait
+ * before the Try Again button appears.
+ */
+export const READ_RETRY_DELAYS_MS = [500];
+
+/** Thrown by retryRead once every try has failed; the first failure's cause is logged by withRetry. */
+export class ReadFailedError extends Error {
+  constructor() {
+    super('Read failed after retrying');
+    this.name = 'ReadFailedError';
+  }
+}
+
+/**
+ * withRetry for a read that throws on failure (the shape every library and
+ * co-player loader already has). Resolves with the value, or throws
+ * ReadFailedError so the caller's catch shows its error state — never the
+ * empty one.
+ */
+export async function retryRead<T>(
+  read: () => Promise<T>,
+  delays: readonly number[] = READ_RETRY_DELAYS_MS,
+): Promise<T> {
+  const result = await withRetry<T>(async () => ({ ok: true, value: await read() }), delays);
+  if (!result.ok) throw new ReadFailedError();
+  return result.value;
+}

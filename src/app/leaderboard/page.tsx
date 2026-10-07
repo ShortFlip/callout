@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { usePlayer } from '@/hooks/usePlayer';
@@ -10,28 +10,35 @@ import { cn } from '@/lib/utils';
 import { buildLeaderboard, type LeaderboardRow } from '@/lib/game/stats';
 import { loadCoPlayerRecords } from '@/lib/game/co-players';
 import { SkeletonRows } from '@/components/ui/skeleton-rows';
+import { LoadError } from '@/components/layout/LoadError';
+import { retryRead } from '@/lib/utils/retry';
 
 export default function LeaderboardPage() {
   const { player } = usePlayer();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // A failed read is its own state, never "No One on the Board Yet".
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Also what Try Again re-runs, so it lives outside the effect.
+  const load = useCallback(async (myId: string) => {
+    try {
+      // Only won rounds count (isScoredRound inside buildLeaderboard), so
+      // this board and the profile stats card can never disagree.
+      setRows(buildLeaderboard(await retryRead(() => loadCoPlayerRecords(myId))));
+      setLoadFailed(false);
+    } catch (error) {
+      console.error(error);
+      setLoadFailed(true);
+    }
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!player) return;
-    const myId = player.id;
-
-    async function load() {
-      try {
-        // Only won rounds count (isScoredRound inside buildLeaderboard), so
-        // this board and the profile stats card can never disagree.
-        setRows(buildLeaderboard(await loadCoPlayerRecords(myId)));
-      } catch (error) {
-        console.error(error);
-      }
-      setIsLoading(false);
-    }
-
-    load();
+    // load() only sets state after its read resolves, never synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(player.id);
   }, [player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -55,6 +62,8 @@ export default function LeaderboardPage() {
 
         {isLoading ? (
           <SkeletonRows count={5} label="Loading the leaderboard" rowClassName="h-[52px]" />
+        ) : loadFailed ? (
+          <LoadError title="Couldn't Load The Leaderboard" onRetry={() => load(player!.id)} />
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <p className="font-display font-bold">No One on the Board Yet</p>

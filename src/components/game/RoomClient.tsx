@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { GameLobby } from './GameLobby';
 import { GameView } from './GameView';
 import { GameOver } from './GameOver';
+import type { HostAction } from './HostControls';
 import { GameSkeleton } from './GameSkeleton';
 import { BoardSkeleton } from '@/components/board/BoardSkeleton';
 import { useRealtimeRoom } from '@/hooks/useRealtimeRoom';
@@ -189,6 +190,9 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   // so a round inserted during a restore is not skipped.
   const restoringRef = useRef(false);
   const restoreAgainRef = useRef(false);
+  // The rejoin restore gave up with no round on screen. GameSkeleton then
+  // overlays Can't Load This Round with Try Again instead of pulsing forever.
+  const [restoreFailed, setRestoreFailed] = useState(false);
 
   /**
    * Rebuild this player's view of the room's latest round from the DB: the
@@ -227,6 +231,12 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       warned = true;
       toast.error('Having trouble reaching the game. Retrying…');
     };
+    // With no round on screen the skeleton's overlay says it, with Try Again;
+    // a catch-up restore over a live board keeps the toast.
+    const failRestore = (message: string) => {
+      if (!useGameStore.getState().gameId) setRestoreFailed(true);
+      else toast.error(message);
+    };
 
     // The live round is the most recently started one. round_number is not
     // unique in older data, so ordering by it could pick a finished round.
@@ -245,11 +255,11 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       return { ok: true, value: data };
     }, RETRY_DELAYS_MS, warnOnce);
     if (!gameRead.ok) {
-      toast.error("Couldn't load this round. Try refreshing.");
+      failRestore("Couldn't load this round. Try refreshing.");
       return;
     }
     const game = gameRead.value;
-    if (!game) return;
+    if (!game) { setRestoreFailed(false); return; }
     // The game_started broadcast may have got us here first.
     if (useGameStore.getState().gameId === game.id) return;
 
@@ -266,7 +276,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       return { ok: true, value: data };
     }, RETRY_DELAYS_MS, warnOnce);
     if (!templateRead.ok) {
-      toast.error("Couldn't load this round. Try refreshing.");
+      failRestore("Couldn't load this round. Try refreshing.");
       return;
     }
     const template = templateRead.value;
@@ -289,7 +299,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       return { ok: true, value: data };
     }, RETRY_DELAYS_MS, warnOnce);
     if (!ownRead.ok) {
-      toast.error("Couldn't restore your board. Try refreshing.");
+      failRestore("Couldn't restore your board. Try refreshing.");
       return;
     }
     const ownRow = ownRead.value;
@@ -329,6 +339,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       // when the round began rather than from the refresh.
       startedAt: game.started_at,
     });
+    setRestoreFailed(false);
 
     // Restore how far the host has called
     setCalledCount(game.calls_made);
@@ -688,11 +699,16 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   // A double-click on New Round / Play Again must not insert two rounds. A ref,
   // not state, so the second click sees it before React re-renders.
   const newRoundInFlight = useRef(false);
+  // What the host's buttons show while a request is out: the clicked one
+  // spins and says Starting… / Ending…, its sibling is disabled. State (the
+  // ref above stays the double-click guard) so the buttons re-render.
+  const [hostAction, setHostAction] = useState<HostAction | null>(null);
 
   async function handleNewRound() {
     if (!player || !initialRoom.template_id) return;
     if (newRoundInFlight.current) return;
     newRoundInFlight.current = true;
+    setHostAction('new-round');
     try {
       const supabase = createClient();
 
@@ -746,6 +762,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
       toast.error('Could not start a new round.');
     } finally {
       newRoundInFlight.current = false;
+      setHostAction(null);
     }
   }
 
@@ -931,6 +948,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   // GameOver state) and every client refreshes via the room_closed broadcast.
   async function handleEndGame() {
     if (!player) return;
+    setHostAction('end-night');
     try {
       const supabase = createClient();
 
@@ -950,6 +968,8 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
     } catch (err) {
       console.error('Failed to end game:', err);
       toast.error('Could not end the game.');
+    } finally {
+      setHostAction(null);
     }
   }
 
@@ -985,6 +1005,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
         // Host can restart from the finished state; GameOver hides the button
         // for non-hosts and shows a "waiting for the host" line instead.
         onNewRound={handleNewRound}
+        isStarting={hostAction === 'new-round'}
       />
     );
   }
@@ -1012,6 +1033,8 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
           onBingoClaim={handleBingoClaim}
           onNewRound={handleNewRound}
           onEndGame={handleEndGame}
+          hostAction={hostAction}
+          onRetryRestore={restoreFailed ? restoreLatestRound : undefined}
           onSwapGames={handleSwapGames}
           onLoadSwapPlan={handleLoadSwapPlan}
           onSetStyle={handleSetStyle}

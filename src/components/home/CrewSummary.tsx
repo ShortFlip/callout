@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, History, Trophy } from 'lucide-react';
 import { usePlayer } from '@/hooks/usePlayer';
@@ -8,6 +8,8 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { loadCoPlayerRecords } from '@/lib/game/co-players';
 import { buildLeaderboard, lastNight, type LastNight, type LeaderboardRow } from '@/lib/game/stats';
 import { cn } from '@/lib/utils';
+import { retryRead } from '@/lib/utils/retry';
+import { LoadError } from '@/components/layout/LoadError';
 
 interface Crew {
   members: { playerId: string; displayName: string; avatarUrl: string | null }[];
@@ -18,43 +20,53 @@ interface Crew {
 // Past this many avatars the row gets a "+N" instead of growing.
 const MAX_AVATARS = 6;
 
-/** One read for the hero's crew row and both stat tiles, so they agree. */
-function useCrew(): Crew | null | 'failed' {
+/**
+ * One read for the hero's crew row and both stat tiles, so they agree.
+ * `reload` is Try Again after the read failed.
+ */
+function useCrew(): { crew: Crew | null | 'failed'; reload: () => Promise<void> } {
   const { player } = usePlayer();
   const [crew, setCrew] = useState<Crew | null | 'failed'>(null);
+
+  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!player) return;
+    try {
+      const records = await retryRead(() => loadCoPlayerRecords(player.id));
+      if (!isCurrent()) return;
+      // Me first, then everyone else in the order the rows came back.
+      const members = new Map<string, Crew['members'][number]>();
+      members.set(player.id, { playerId: player.id, displayName: player.display_name, avatarUrl: player.avatar_url });
+      for (const r of records) {
+        if (!members.has(r.playerId)) {
+          members.set(r.playerId, { playerId: r.playerId, displayName: r.displayName, avatarUrl: r.avatarUrl });
+        }
+      }
+      const champ = buildLeaderboard(records)[0] ?? null;
+      setCrew({
+        members: [...members.values()],
+        night: lastNight(records),
+        champ: champ && champ.wins > 0 ? champ : null,
+      });
+    } catch (error: unknown) {
+      // Host/Join still work without the tiles, but a failure is said, not
+      // shown as "No nights played yet" (2026-10-07 audit).
+      console.error('Failed to load the crew summary:', error);
+      if (isCurrent()) setCrew('failed');
+    }
+  }, [player]);
 
   useEffect(() => {
     if (!player) return;
     let cancelled = false;
-    loadCoPlayerRecords(player.id)
-      .then((records) => {
-        if (cancelled) return;
-        // Me first, then everyone else in the order the rows came back.
-        const members = new Map<string, Crew['members'][number]>();
-        members.set(player.id, { playerId: player.id, displayName: player.display_name, avatarUrl: player.avatar_url });
-        for (const r of records) {
-          if (!members.has(r.playerId)) {
-            members.set(r.playerId, { playerId: r.playerId, displayName: r.displayName, avatarUrl: r.avatarUrl });
-          }
-        }
-        const champ = buildLeaderboard(records)[0] ?? null;
-        setCrew({
-          members: [...members.values()],
-          night: lastNight(records),
-          champ: champ && champ.wins > 0 ? champ : null,
-        });
-      })
-      .catch((error: unknown) => {
-        // Quiet: the tiles are aftermath, and Host/Join still work without them.
-        console.error('Failed to load the crew summary:', error);
-        if (!cancelled) setCrew('failed');
-      });
+    // load() only sets state after its read resolves, never synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(() => !cancelled);
     return () => {
       cancelled = true;
     };
   }, [player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return crew;
+  return { crew, reload: () => load() };
 }
 
 /**
@@ -67,12 +79,15 @@ function useCrew(): Crew | null | 'failed' {
  * different spots of the hero but must come from one read.
  */
 export function useCrewSummary() {
-  const crew = useCrew();
+  const { crew, reload } = useCrew();
   const ready = crew !== null && crew !== 'failed';
 
   return {
     crewRow: ready && crew.members.length > 1 ? <CrewRow members={crew.members} /> : null,
-    tiles: (
+    // The two tiles' slot, so the hero keeps its shape.
+    tiles: crew === 'failed' ? (
+      <LoadError layout="row" title="Couldn't Load Your Crew" onRetry={reload} />
+    ) : (
       <div className="grid grid-cols-2 gap-3">
         <StatTile
           href={ready && crew.night ? `/history?night=${crew.night.roomId}` : '/history'}

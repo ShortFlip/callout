@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -18,6 +18,8 @@ import { PILL } from '@/lib/pill';
 import type { SquareItem, CardStyles } from '@/types/card';
 import { SECTION_LABEL } from '@/lib/label';
 import { SkeletonRows } from '@/components/ui/skeleton-rows';
+import { LoadError } from '@/components/layout/LoadError';
+import { retryRead } from '@/lib/utils/retry';
 
 /** One player's card in one round. */
 interface RoundPlayer {
@@ -86,141 +88,145 @@ function HistoryPageContent() {
   const linkedNightId = searchParams.get('night');
   const [nights, setNights] = useState<Night[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // A failed read is its own state, never "No Nights Yet" (2026-10-07 audit).
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(linkedNightId);
+
+  // Also what Try Again re-runs, so it lives outside the effect.
+  const load = useCallback(async (myId: string) => {
+    const supabase = createClient();
+
+    // 1. Which rooms have I played in? A room is a night.
+    let roomIds: string[];
+    try {
+      roomIds = await retryRead(() => loadMyRoomIds(supabase, myId));
+    } catch (mineError) {
+      console.error(mineError); setLoadFailed(true); setIsLoading(false); return;
+    }
+
+    if (roomIds.length === 0) { setNights([]); setLoadFailed(false); setIsLoading(false); return; }
+
+    // 2. Every row from every round of those rooms — mine and everyone
+    //    else's, paged past the 1,000-row cap. `!inner` is what makes the
+    //    room filter apply to the parent row instead of merely nulling the embed.
+    let rows;
+    try {
+      rows = await retryRead(() => readAllPagesIn(roomIds, (ids, from, to) =>
+        supabase
+          .from('game_players')
+          .select(`
+            id, player_id, marks, card_data, won, finish_position,
+            games!inner (
+              id, round_number, status, win_pattern, started_at, room_id,
+              rooms!games_room_id_fkey (
+                name, join_code,
+                card_templates!rooms_template_id_fkey (
+                  name, board_size, styles, free_space
+                )
+              )
+            ),
+            players!game_players_player_id_fkey ( id, display_name, avatar_url )
+          `)
+          .in('games.room_id', ids)
+          .order('id', { ascending: true })
+          .range(from, to),
+      ));
+    } catch (error) {
+      console.error(error); setLoadFailed(true); setIsLoading(false); return;
+    }
+
+    const byRoom = new Map<string, Night>();
+    const roundsByGame = new Map<string, Round>();
+
+    rows.forEach((row) => {
+      const game = row.games as unknown as GameEmbed | null;
+      const p = row.players as unknown as
+        { id: string; display_name: string; avatar_url: string | null } | null;
+      if (!game || !p) return;
+
+      const template = game.rooms?.card_templates ?? null;
+      const card = (row.card_data as SquareItem[]) ?? [];
+      const markIndices = (row.marks as number[]) ?? [];
+
+      let night = byRoom.get(game.room_id);
+      if (!night) {
+        night = {
+          roomId: game.room_id,
+          title: game.rooms?.name || game.rooms?.join_code || 'Game night',
+          templateName: template?.name ?? null,
+          boardSize: template?.board_size ?? 5,
+          styles: (template?.styles as CardStyles) ?? ({} as CardStyles),
+          date: game.started_at,
+          rounds: [],
+          roster: [],
+          winners: [],
+        };
+        byRoom.set(game.room_id, night);
+      }
+
+      // A night is dated by its first round, not by whichever row arrived first.
+      if (game.started_at && game.started_at < night.date) night.date = game.started_at;
+
+      if (!night.roster.some((r) => r.playerId === p.id)) {
+        night.roster.push({ playerId: p.id, displayName: p.display_name, avatarUrl: p.avatar_url });
+      }
+      if (row.won && !night.winners.includes(p.display_name)) {
+        night.winners.push(p.display_name);
+      }
+
+      let round = roundsByGame.get(game.id);
+      if (!round) {
+        round = {
+          gameId: game.id,
+          roundNumber: game.round_number,
+          status: game.status,
+          winPattern: game.win_pattern,
+          startedAt: game.started_at,
+          players: [],
+        };
+        roundsByGame.set(game.id, round);
+        night.rounds.push(round);
+      }
+
+      round.players.push({
+        rowId: row.id,
+        playerId: p.id,
+        displayName: p.display_name,
+        avatarUrl: p.avatar_url,
+        marks: markIndices.length,
+        total: card.length,
+        won: row.won,
+        finishPosition: row.finish_position,
+        card: p.id === myId ? card : null,
+        markIndices,
+      });
+    });
+
+    const list = [...byRoom.values()];
+    list.forEach((night) => {
+      night.rounds.sort((a, b) => a.roundNumber - b.roundNumber);
+      // Winners first, then everyone else alphabetically — the eye should go
+      // to the result, not to whatever order the query returned.
+      night.rounds.forEach((r) =>
+        r.players.sort((a, b) => {
+          if (a.won !== b.won) return a.won ? -1 : 1;
+          if (a.won && b.won) return (a.finishPosition ?? 9) - (b.finishPosition ?? 9);
+          return a.displayName.localeCompare(b.displayName);
+        }),
+      );
+    });
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    setNights(list);
+    setLoadFailed(false);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!player) return;
-    const myId = player.id;
-
-    async function load() {
-      const supabase = createClient();
-
-      // 1. Which rooms have I played in? A room is a night.
-      let roomIds: string[];
-      try {
-        roomIds = await loadMyRoomIds(supabase, myId);
-      } catch (mineError) {
-        console.error(mineError); setIsLoading(false); return;
-      }
-
-      if (roomIds.length === 0) { setNights([]); setIsLoading(false); return; }
-
-      // 2. Every row from every round of those rooms — mine and everyone
-      //    else's, paged past the 1,000-row cap. `!inner` is what makes the
-      //    room filter apply to the parent row instead of merely nulling the embed.
-      let rows;
-      try {
-        rows = await readAllPagesIn(roomIds, (ids, from, to) =>
-          supabase
-            .from('game_players')
-            .select(`
-              id, player_id, marks, card_data, won, finish_position,
-              games!inner (
-                id, round_number, status, win_pattern, started_at, room_id,
-                rooms!games_room_id_fkey (
-                  name, join_code,
-                  card_templates!rooms_template_id_fkey (
-                    name, board_size, styles, free_space
-                  )
-                )
-              ),
-              players!game_players_player_id_fkey ( id, display_name, avatar_url )
-            `)
-            .in('games.room_id', ids)
-            .order('id', { ascending: true })
-            .range(from, to),
-        );
-      } catch (error) {
-        console.error(error); setIsLoading(false); return;
-      }
-
-      const byRoom = new Map<string, Night>();
-      const roundsByGame = new Map<string, Round>();
-
-      rows.forEach((row) => {
-        const game = row.games as unknown as GameEmbed | null;
-        const p = row.players as unknown as
-          { id: string; display_name: string; avatar_url: string | null } | null;
-        if (!game || !p) return;
-
-        const template = game.rooms?.card_templates ?? null;
-        const card = (row.card_data as SquareItem[]) ?? [];
-        const markIndices = (row.marks as number[]) ?? [];
-
-        let night = byRoom.get(game.room_id);
-        if (!night) {
-          night = {
-            roomId: game.room_id,
-            title: game.rooms?.name || game.rooms?.join_code || 'Game night',
-            templateName: template?.name ?? null,
-            boardSize: template?.board_size ?? 5,
-            styles: (template?.styles as CardStyles) ?? ({} as CardStyles),
-            date: game.started_at,
-            rounds: [],
-            roster: [],
-            winners: [],
-          };
-          byRoom.set(game.room_id, night);
-        }
-
-        // A night is dated by its first round, not by whichever row arrived first.
-        if (game.started_at && game.started_at < night.date) night.date = game.started_at;
-
-        if (!night.roster.some((r) => r.playerId === p.id)) {
-          night.roster.push({ playerId: p.id, displayName: p.display_name, avatarUrl: p.avatar_url });
-        }
-        if (row.won && !night.winners.includes(p.display_name)) {
-          night.winners.push(p.display_name);
-        }
-
-        let round = roundsByGame.get(game.id);
-        if (!round) {
-          round = {
-            gameId: game.id,
-            roundNumber: game.round_number,
-            status: game.status,
-            winPattern: game.win_pattern,
-            startedAt: game.started_at,
-            players: [],
-          };
-          roundsByGame.set(game.id, round);
-          night.rounds.push(round);
-        }
-
-        round.players.push({
-          rowId: row.id,
-          playerId: p.id,
-          displayName: p.display_name,
-          avatarUrl: p.avatar_url,
-          marks: markIndices.length,
-          total: card.length,
-          won: row.won,
-          finishPosition: row.finish_position,
-          card: p.id === myId ? card : null,
-          markIndices,
-        });
-      });
-
-      const list = [...byRoom.values()];
-      list.forEach((night) => {
-        night.rounds.sort((a, b) => a.roundNumber - b.roundNumber);
-        // Winners first, then everyone else alphabetically — the eye should go
-        // to the result, not to whatever order the query returned.
-        night.rounds.forEach((r) =>
-          r.players.sort((a, b) => {
-            if (a.won !== b.won) return a.won ? -1 : 1;
-            if (a.won && b.won) return (a.finishPosition ?? 9) - (b.finishPosition ?? 9);
-            return a.displayName.localeCompare(b.displayName);
-          }),
-        );
-      });
-      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      setNights(list);
-      setIsLoading(false);
-    }
-
-    load();
+    // load() only sets state after its read resolves, never synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(player.id);
   }, [player?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The open night: the one a `?night=` link names, else the newest. A stale
@@ -255,7 +261,9 @@ function HistoryPageContent() {
           <p className="text-sm text-muted-foreground">Every night you have played, newest first.</p>
         </div>
 
-        {nights.length === 0 ? (
+        {loadFailed ? (
+          <LoadError title="Couldn't Load Your Nights" onRetry={() => load(player!.id)} />
+        ) : nights.length === 0 ? (
           <div className="space-y-1 rounded-xl border border-dashed border-border p-8 text-center">
             <p className="font-display font-bold">No Nights Yet</p>
             <p className="text-sm text-muted-foreground">Your game nights show up here after the first one.</p>

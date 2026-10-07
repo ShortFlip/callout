@@ -5,6 +5,7 @@ import { seededRng } from '@/lib/game/seed-rng';
 import { CARD_PRESETS } from '@/lib/card-styles';
 import * as api from '@/lib/library/api';
 import { computeHeat, type HeatMap } from '@/lib/library/heat';
+import { retryRead } from '@/lib/utils/retry';
 import {
   cardStyles,
   fillEmptySquares,
@@ -117,6 +118,11 @@ interface LibraryState {
   items: LibraryItem[];
   tags: Tag[];
   loaded: boolean;
+  /**
+   * The last load() failed after its retries. The page shows Couldn't Load
+   * with Try Again instead of a skeleton that pulses forever.
+   */
+  loadFailed: boolean;
   /** Item id → marks and appearances from past rounds. Empty until loaded, or if it failed. */
   heat: HeatMap;
   savedCards: CardTemplate[];
@@ -253,6 +259,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
     items: [],
     tags: [],
     loaded: false,
+    loadFailed: false,
     heat: {},
     savedCards: [],
     filter: 'all',
@@ -265,16 +272,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
 
     async load(ownerId) {
       try {
-        const [{ items, tags }, savedCards] = await Promise.all([
+        // One blip is retried before the page says it couldn't load.
+        const [{ items, tags }, savedCards] = await retryRead(() => Promise.all([
           api.loadLibrary(ownerId),
           api.loadSavedCards(ownerId),
-        ]);
-        set({ ownerId, items, tags, savedCards, loaded: true, selectedIds: [] });
+        ]));
+        set({ ownerId, items, tags, savedCards, loaded: true, loadFailed: false, selectedIds: [] });
         // Not awaited: heat is a nice-to-have and must not hold the page up.
         void get().loadHeat();
         return true;
       } catch (error) {
-        toastError(error, 'Could not load your library.');
+        // No toast: the page itself says Couldn't Load Your Library, with Try Again.
+        console.error('[library] load failed:', error);
+        set({ loadFailed: true });
         return false;
       }
     },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, ChevronDown, Palette } from 'lucide-react';
+import { Check, ChevronDown, LoaderCircle, Palette } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,9 +16,14 @@ import type { SwapPlan, SwapReplacements } from '@/lib/game/swap-games';
 /** A game the round's cards actually use, named (and marked) from the card's legend. */
 export type SwapGameOption = SwapSide;
 
+/** The host request in flight, if any. Owned by RoomClient, so header and banner agree. */
+export type HostAction = 'new-round' | 'end-night';
+
 interface HostControlsProps {
   onNewRound: () => void;
   onEndGame: () => void;
+  /** Which of New Round / End Night is in flight: that one spins, both are disabled. */
+  hostAction?: HostAction | null;
   /**
    * Games on this round's cards. Two or more turns on the swap control; the
    * header passes it, the win banner does not (see GameView).
@@ -50,6 +55,7 @@ const HOST_BTN =
 export function HostControls({
   onNewRound,
   onEndGame,
+  hostAction = null,
   swapGames,
   onSwapGames,
   onLoadSwapPlan,
@@ -120,12 +126,22 @@ export function HostControls({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <button type="button" onClick={onNewRound} className={cn(HOST_BTN, 'text-foreground/85')}>
-        New Round
-      </button>
-      <button type="button" onClick={onEndGame} className={cn(HOST_BTN, 'text-muted-foreground')}>
-        End Night
-      </button>
+      <HostButton
+        label="New Round"
+        busyLabel="Starting…"
+        busy={hostAction === 'new-round'}
+        disabled={hostAction !== null}
+        onClick={onNewRound}
+        className="text-foreground/85"
+      />
+      <HostButton
+        label="End Night"
+        busyLabel="Ending…"
+        busy={hostAction === 'end-night'}
+        disabled={hostAction !== null}
+        onClick={onEndGame}
+        className="text-muted-foreground"
+      />
 
       {onSwapGames && onLoadSwapPlan && (
         <SwapPicker
@@ -136,5 +152,42 @@ export function HostControls({
         />
       )}
     </>
+  );
+}
+
+interface HostButtonProps {
+  label: string;
+  busyLabel: string;
+  /** This button's request is in flight: spinner and the -ing label. */
+  busy: boolean;
+  /** Any host request is in flight, this one's or its sibling's. */
+  disabled: boolean;
+  onClick: () => void;
+  className: string;
+}
+
+/**
+ * New Round / End Night. A click used to give no sign it landed (the ref
+ * guard in RoomClient dropped repeat clicks silently), so the clicked button
+ * now spins in place, the one place a spinner is allowed (decision 0005),
+ * and its sibling dims so the host cannot fire the other one meanwhile.
+ */
+function HostButton({ label, busyLabel, busy, disabled, onClick, className }: HostButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-busy={busy || undefined}
+      className={cn(
+        HOST_BTN,
+        'inline-flex items-center gap-1.5 disabled:pointer-events-none',
+        // The busy one stays bright so the eye finds what is happening.
+        busy ? 'text-foreground' : cn(className, 'disabled:opacity-60'),
+      )}
+    >
+      {busy && <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" strokeWidth={1.75} />}
+      {busy ? busyLabel : label}
+    </button>
   );
 }
