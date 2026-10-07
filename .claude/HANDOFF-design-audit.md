@@ -70,6 +70,6 @@ work. Work in your own worktree.
 - Worktree needs a `node_modules` junction to the main checkout's; remove the
   junction with `cmd /c rmdir` before `git worktree remove`, or the removal can
   follow it.
-- Theme key in localStorage: `squares:theme` (`midnight`, `latte`, …).
+- Theme key in localStorage: `callout:theme` (`midnight`, `latte`, …).
 - Playwright MCP saves only inside the session's working directory; stitch
   pairs with ImageMagick `magick a.png b.png -resize 50% +append pair.png`.

@@ -1,6 +1,6 @@
 'use client';
 
-import { SquaresMark } from '@/components/layout/SquaresMark';
+import { CalloutMark } from '@/components/layout/CalloutMark';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link as LinkIcon, Volume2, VolumeX } from 'lucide-react';
 import { BingoBoard } from '@/components/board/BingoBoard';
@@ -294,8 +294,8 @@ export function GameView({
         style={{ height: HEADER_H }}
       >
         <div className="flex items-center gap-3">
-          <SquaresMark size={22} />
-          <span className="font-display text-[15px] font-extrabold">Squares</span>
+          <CalloutMark size={22} />
+          <span className="font-display text-[15px] font-extrabold">Callout</span>
           <span className="w-px h-[22px] bg-white/12" />
           <span
             className="code-glow font-mono text-[26px] font-bold tracking-[0.14em]"

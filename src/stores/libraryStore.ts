@@ -29,7 +29,7 @@ import type { CardMix, GameColorKey, GameIconKey, LibraryItem, MixLane, Tag, Tag
  * library edit (which only drops a deleted item's square or relabels one).
  *
  * The card draft (not the library) is saved to localStorage under
- * squares:card-draft, so a refresh or a trip to the landing page does not lose
+ * callout:card-draft, so a refresh or a trip to the landing page does not lose
  * a half-built card. Storage can be blocked (private mode, site data off):
  * every read and write is wrapped so the page works without it.
  */
@@ -61,7 +61,7 @@ export interface CardDraft {
   dirty: boolean;
 }
 
-const DRAFT_KEY = 'squares:card-draft';
+const DRAFT_KEY = 'callout:card-draft';
 
 function blankDraft(ownerId: string | null): CardDraft {
   return {

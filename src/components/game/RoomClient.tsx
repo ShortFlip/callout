@@ -75,7 +75,7 @@ export function RoomClient({ initialRoom }: RoomClientProps) {
   // verification. Stripped from production builds by the NODE_ENV check.
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      (window as unknown as { __squares?: unknown }).__squares = useGameStore;
+      (window as unknown as { __callout?: unknown }).__callout = useGameStore;
     }
   }, []);
 

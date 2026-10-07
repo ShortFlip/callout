@@ -1,4 +1,4 @@
-name = "squares"
+name = "callout"
 # custom-worker.ts wraps OpenNext's generated .open-next/worker.js: it forwards
 # every request to it unchanged and adds the Supabase keepalive Cron handler.
 main = "custom-worker.ts"

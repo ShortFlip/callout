@@ -1,8 +1,8 @@
-# CLAUDE.md — Squares
+# CLAUDE.md — Callout
 
 > A real-time multiplayer bingo platform for small friend groups.
 
-**Squares** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions — no account required (but optionally supported).
+**Callout** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions — no account required (but optionally supported).
 
 **Target audience:** 3-5 friends playing recurring bingo nights.
 
@@ -118,7 +118,7 @@ The schema is `supabase/migrations/` plus the generated `src/lib/supabase/types.
 ## Project Structure
 
 ```
-squares/
+callout/
 ├── src/
 │   ├── app/                          # Next.js App Router pages
 │   │   ├── layout.tsx                # Root layout (fonts, theme, player provider)
@@ -157,7 +157,7 @@ squares/
 │   │   │   ├── ProfileModal.tsx      # Name, avatar, theme, claim code (no /profile page)
 │   │   │   └── ThemePicker.tsx       # The six app themes
 │   │   ├── home/CrewSummary.tsx      # Home's crew avatars row
-│   │   ├── layout/                   # RoomCodeDisplay, SquaresMark (logo), ServerUnreachable
+│   │   ├── layout/                   # RoomCodeDisplay, CalloutMark (logo), ServerUnreachable
 │   │   ├── library/                  # Library panes, import, mix control
 │   │   ├── stats/PlayerStats.tsx
 │   │   └── ui/                       # shadcn/ui primitives + PlayerAvatar
@@ -319,10 +319,10 @@ a Cloudflare tunnel was dropped in favour of Workers.
 
 ## Notes
 
-- The name "Squares" is a working title and may change. It's only referenced in `package.json` `name` field, the root layout `<title>`, and any logo/branding components.
+- The name is **Callout** (renamed from Squares on 2026-10-07, along with the Worker URL, repo and `callout:*` storage keys).
 - This is a personal project for 3-5 friends. No need for rate limiting, abuse prevention, or enterprise features in MVP.
 - Sound effects and confetti are non-negotiable. They make the game.
-- **Desktop only.** Squares lives on a second monitor beside Discord while the
+- **Desktop only.** Callout lives on a second monitor beside Discord while the
   main monitor is playing something else. Assume ~1280×800 minimum. No mobile work.
 
 ---
