@@ -1,4 +1,4 @@
-# Squares
+# Callout
 
 A real-time multiplayer bingo app for small friend groups. A host builds a custom
 card template, starts a room, and friends join with a six-character code. Everyone

@@ -1,6 +1,6 @@
 'use client';
 
-import { SquaresMark } from '@/components/layout/SquaresMark';
+import { CalloutMark } from '@/components/layout/CalloutMark';
 import { BoardSkeleton } from '@/components/board/BoardSkeleton';
 import {
   HEADER_H, NAME_ROW_H, PANEL_GAP, PANEL_PAD_X, PANEL_PAD_Y, heroGridSize,
@@ -33,8 +33,8 @@ export function GameSkeleton({ joinCode, boardSize = 5 }: GameSkeletonProps) {
         style={{ height: HEADER_H }}
       >
         <div className="flex items-center gap-3">
-          <SquaresMark size={22} />
-          <span className="font-display text-[15px] font-extrabold">Squares</span>
+          <CalloutMark size={22} />
+          <span className="font-display text-[15px] font-extrabold">Callout</span>
           <span className="w-px h-[22px] bg-foreground/12" />
           <span
             className="code-glow font-mono text-[26px] font-bold tracking-[0.14em]"

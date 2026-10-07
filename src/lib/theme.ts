@@ -17,7 +17,7 @@ export const THEMES: Theme[] = [
   { id: 'latte',    label: 'Latte',     bg: '#f5f0e8', accent: '#7c3aed', dark: false },
 ];
 
-const STORAGE_KEY = 'squares:theme';
+const STORAGE_KEY = 'callout:theme';
 
 export function getSavedTheme(): ThemeId {
   if (typeof window === 'undefined') return 'midnight';

@@ -1,6 +1,6 @@
 # Mock Supabase
 
-A local, in-memory fake of the Supabase endpoints Squares calls, so every
+A local, in-memory fake of the Supabase endpoints Callout calls, so every
 screen can be opened and screenshotted without touching the live project.
 
 ## Why
@@ -38,7 +38,7 @@ Options (environment variables for `npm run dev:mock`):
 | `MOCK_FRIENDS_ONLINE` | `1` | Dan, Jess and Marco show as present in every live room. `0` leaves rooms empty. |
 | `MOCK_NEXT_PORT` | `3123` | Port for `next dev`. |
 
-To be a friend instead of Ryann, set `localStorage['squares:browser_id']` on
+To be a friend instead of Ryann, set `localStorage['callout:browser_id']` on
 `localhost:3123` to `mock-browser-dan`, `mock-browser-jess` or
 `mock-browser-marco` and reload. Ryann is `mock-browser-ryann`.
 

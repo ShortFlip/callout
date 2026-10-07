@@ -1,4 +1,4 @@
-const KEY = 'squares:last_room';
+const KEY = 'callout:last_room';
 
 export interface LastRoom {
   code: string;

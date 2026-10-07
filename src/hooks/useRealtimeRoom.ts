@@ -280,7 +280,7 @@ export function useRealtimeRoom(
           // The NODE_ENV check is inlined at build time, so production drops it.
           if (
             process.env.NODE_ENV !== 'production'
-            && (window as unknown as { __squaresDropMarks?: boolean }).__squaresDropMarks
+            && (window as unknown as { __calloutDropMarks?: boolean }).__calloutDropMarks
           ) return;
           markHeardAtRef.current.set(payload.playerId, Date.now());
           useGameStore.getState().setOtherMarks(payload.playerId, payload.marks);

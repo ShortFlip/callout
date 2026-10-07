@@ -23,7 +23,7 @@ export const ROOM_CODES = {
   pastNight: 'FRDAY2', // status finished: History night 1 (won, won, cancelled)
 };
 
-/** localStorage `squares:browser_id` values that log a browser in as each fixture player. */
+/** localStorage `callout:browser_id` values that log a browser in as each fixture player. */
 export const BROWSER_IDS = {
   ryann: 'mock-browser-ryann',
   dan: 'mock-browser-dan',
