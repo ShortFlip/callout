@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BookmarkMinus, Library, Pencil, Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +13,8 @@ import { CardPreview } from '@/components/board/CardPreview';
 import { CardSplitWords } from '@/components/library/CardSplitWords';
 import type { CardTemplate } from '@/types/card';
 import { SkeletonRows } from '@/components/ui/skeleton-rows';
+import { LoadError } from '@/components/layout/LoadError';
+import { retryRead } from '@/lib/utils/retry';
 
 // A 150ms colour transition (the owner's motion rule); the Button primitive now carries it too.
 const BTN = 'transition-colors duration-150';
@@ -46,20 +48,30 @@ export function TemplateList({ selectedId, onHost }: TemplateListProps) {
   const { player } = usePlayer();
   const [cards, setCards] = useState<CardTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // A failed read shows Couldn't Load, never "No saved cards yet" (2026-10-07 audit).
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // The first read and Try Again. `isCurrent` lets the effect drop a read
+  // that finishes after the player changed or the panel unmounted.
+  const load = useCallback(async (playerId: string, isCurrent: () => boolean = () => true) => {
+    try {
+      const saved = await retryRead(() => loadSavedCards(playerId));
+      if (!isCurrent()) return;
+      setCards(saved);
+      setLoadFailed(false);
+    } catch (error) {
+      console.error('Failed to load saved cards:', error);
+      if (isCurrent()) setLoadFailed(true);
+    }
+    if (isCurrent()) setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!player) return;
     let cancelled = false;
-    loadSavedCards(player.id)
-      .then((saved) => {
-        if (!cancelled) setCards(saved);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) toast.error(error instanceof LibraryError ? error.message : 'Could not load your saved cards.');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+    // load() only sets state after its read resolves, never synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(player.id, () => !cancelled);
     return () => {
       cancelled = true;
     };
@@ -119,10 +131,12 @@ export function TemplateList({ selectedId, onHost }: TemplateListProps) {
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-bold">Your Cards</h2>
         {/* The empty state carries its own Open Library, so the header's would be a second copy. */}
-        {cards.length > 0 && openLibrary}
+        {(cards.length > 0 || loadFailed) && openLibrary}
       </div>
 
-      {cards.length === 0 ? (
+      {loadFailed ? (
+        <LoadError layout="row" title="Couldn't Load Your Cards" onRetry={() => load(player!.id)} />
+      ) : cards.length === 0 ? (
         <div className="grid flex-1 place-content-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
           <div className="space-y-1">
             <p className="text-sm font-medium">No saved cards yet</p>

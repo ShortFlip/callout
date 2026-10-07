@@ -1,7 +1,7 @@
 'use client';
 
 import { Trophy } from 'lucide-react';
-import { HostControls } from './HostControls';
+import { HostControls, type HostAction } from './HostControls';
 import { cn } from '@/lib/utils';
 import { PILL } from '@/lib/pill';
 import type { GameWinner } from '@/stores/gameStore';
@@ -14,6 +14,8 @@ interface WinBannerProps {
   isHost: boolean;
   onNewRound: () => void;
   onEndGame: () => void;
+  /** The host request in flight, so the banner's buttons show it like the header's. */
+  hostAction?: HostAction | null;
 }
 
 /**
@@ -31,6 +33,7 @@ export function WinBanner({
   isHost,
   onNewRound,
   onEndGame,
+  hostAction,
 }: WinBannerProps) {
   const first = winners[0];
   const second = winners[1];
@@ -106,7 +109,7 @@ export function WinBanner({
 
         {/* Only the host can move the night along, so only the host sees the
             controls — everyone else gets no dead buttons to wonder about. */}
-        {isHost && <HostControls onNewRound={onNewRound} onEndGame={onEndGame} />}
+        {isHost && <HostControls onNewRound={onNewRound} onEndGame={onEndGame} hostAction={hostAction} />}
       </div>
     </div>
   );

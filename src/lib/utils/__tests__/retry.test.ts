@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { withRetry, type Attempt } from '../retry';
+import { withRetry, retryRead, ReadFailedError, type Attempt } from '../retry';
 
 const NO_WAIT = [0, 0, 0];
 
@@ -32,6 +32,29 @@ describe('withRetry', () => {
     expect(await withRetry(attempt, NO_WAIT)).toEqual({ ok: false });
     // One initial try plus one per delay.
     expect(attempt).toHaveBeenCalledTimes(NO_WAIT.length + 1);
+    errors.mockRestore();
+  });
+});
+
+describe('retryRead', () => {
+  it('returns the value once a read succeeds', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let calls = 0;
+    const value = await retryRead(async () => {
+      calls++;
+      if (calls < 2) throw new Error('blip');
+      return ['row'];
+    }, NO_WAIT);
+    expect(value).toEqual(['row']);
+    expect(calls).toBe(2);
+    errors.mockRestore();
+  });
+
+  it('throws ReadFailedError when every try fails, so the caller shows an error, not an empty list', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const read = vi.fn(async () => { throw new Error('offline'); });
+    await expect(retryRead(read, [0])).rejects.toBeInstanceOf(ReadFailedError);
+    expect(read).toHaveBeenCalledTimes(2);
     errors.mockRestore();
   });
 });

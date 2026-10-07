@@ -6,7 +6,7 @@ import { Link as LinkIcon, Volume2, VolumeX } from 'lucide-react';
 import { BingoBoard } from '@/components/board/BingoBoard';
 import { BoardLegend } from '@/components/board/BoardLegend';
 import { WinBanner } from './WinBanner';
-import { HostControls } from './HostControls';
+import { HostControls, type HostAction } from './HostControls';
 import { CallerPanel } from './CallerPanel';
 import { CalledItems } from './CalledItems';
 import { RailCard } from './RailCard';
@@ -51,6 +51,10 @@ interface GameViewProps {
   onBingoClaim: () => Promise<void>;
   onNewRound: () => Promise<void>;
   onEndGame: () => Promise<void>;
+  /** Host: New Round or End Night in flight, shown on whichever pair is on screen. */
+  hostAction?: HostAction | null;
+  /** Set only after the rejoin restore gave up: the skeleton's Try Again. */
+  onRetryRestore?: () => Promise<void>;
   onSwapGames: (dropGameTagId: string, targetGameTagId: string, replacements: SwapReplacements) => Promise<void>;
   /** Host only: what the swap picker lists for one direction. */
   onLoadSwapPlan: (dropGameTagId: string, targetGameTagId: string) => Promise<SwapPlan>;
@@ -68,6 +72,8 @@ export function GameView({
   onBingoClaim,
   onNewRound,
   onEndGame,
+  hostAction = null,
+  onRetryRestore,
   onSwapGames,
   onLoadSwapPlan,
   onSetStyle,
@@ -271,7 +277,7 @@ export function GameView({
   // The card is still being restored or generated. The skeleton shares this
   // screen's geometry, so the real board appears exactly where its outline was.
   if (!dev?.card && (!gameId || myCard.length === 0)) {
-    return <GameSkeleton joinCode={room.join_code} boardSize={size} />;
+    return <GameSkeleton joinCode={room.join_code} boardSize={size} onRetry={onRetryRestore} />;
   }
 
   const displayName = player?.display_name ?? 'You';
@@ -316,6 +322,7 @@ export function GameView({
               <HostControls
                 onNewRound={() => { void onNewRound(); }}
                 onEndGame={() => { void onEndGame(); }}
+                hostAction={hostAction}
                 swapGames={swapGames}
                 onSwapGames={onSwapGames}
                 onLoadSwapPlan={onLoadSwapPlan}
@@ -378,6 +385,7 @@ export function GameView({
           isHost={isHost}
           onNewRound={() => { void onNewRound(); }}
           onEndGame={() => { void onEndGame(); }}
+          hostAction={hostAction}
         />
       )}
 

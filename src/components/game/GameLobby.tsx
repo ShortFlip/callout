@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Play } from 'lucide-react';
 import { RoomCodeDisplay } from '@/components/layout/RoomCodeDisplay';
@@ -16,6 +16,8 @@ import { formatPattern } from '@/lib/achievements';
 import { PILL } from '@/lib/pill';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { LoadError } from '@/components/layout/LoadError';
+import { retryRead } from '@/lib/utils/retry';
 import type { Room, RoomSettings, GameStartedPayload } from '@/types/game';
 import type { PresencePlayer, ConnectionState } from '@/hooks/useRealtimeRoom';
 import type { CardTemplate } from '@/types/card';
@@ -38,24 +40,39 @@ export function GameLobby({
   const [isStarting, setIsStarting] = useState(false);
   const isHost = currentPlayerId === room.host_id;
   const [template, setTemplate] = useState<CardTemplate | null>(null);
+  // The preview's read failed: say so instead of pulsing forever.
+  const [templateFailed, setTemplateFailed] = useState(false);
   const [crew, setCrew] = useState<Omit<SeatInfo, 'present'>[]>([]);
 
   // Tonight's card for the preview and the Rules board line. Start re-reads it
   // anyway, so a card edited while everyone waits still plays as edited.
+  // Also Try Again's handler, so it lives outside the effect.
+  const loadTemplate = useCallback(async (templateId: string, isCurrent: () => boolean = () => true) => {
+    try {
+      const data = await retryRead(async () => {
+        const { data, error } = await createClient()
+          .from('card_templates')
+          .select('*')
+          .eq('id', templateId)
+          .single();
+        if (error) throw error;
+        return data;
+      });
+      if (!isCurrent()) return;
+      setTemplate(data);
+      setTemplateFailed(false);
+    } catch (error) {
+      console.error('Failed to load the lobby card:', error);
+      if (isCurrent()) setTemplateFailed(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (!room.template_id) return;
     let cancelled = false;
-    createClient()
-      .from('card_templates')
-      .select('*')
-      .eq('id', room.template_id)
-      .single()
-      .then(({ data, error }) => {
-        if (error) console.error('Failed to load the lobby card:', error);
-        else if (!cancelled) setTemplate(data);
-      });
+    void loadTemplate(room.template_id, () => !cancelled);
     return () => { cancelled = true; };
-  }, [room.template_id]);
+  }, [room.template_id, loadTemplate]);
 
   // The usual crew, so the seats show who we are waiting on. Quiet on failure:
   // the seats then show only who is here, which is what the lobby used to do.
@@ -187,6 +204,17 @@ export function GameLobby({
                   </p>
                 </div>
               </>
+            ) : templateFailed && room.template_id ? (
+              // Start re-reads the card itself, so a failed preview never blocks the night.
+              <div className="flex w-full flex-col gap-3">
+                <h2 className="font-display text-lg font-bold">Tonight&apos;s Card</h2>
+                <LoadError
+                  layout="row"
+                  title="Couldn't Load The Card"
+                  note="The game still starts fine."
+                  onRetry={() => loadTemplate(room.template_id!)}
+                />
+              </div>
             ) : (
               <div aria-hidden className="h-[148px] w-full animate-pulse rounded-md bg-muted/40" />
             )}

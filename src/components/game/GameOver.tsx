@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, RotateCcw, History } from 'lucide-react';
+import { Trophy, Home, RotateCcw, History, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -16,12 +16,14 @@ interface GameOverProps {
   currentPlayerId: string;
   presentPlayers: PresencePlayer[];
   onNewRound?: () => Promise<void>;
+  /** Play Again's request is in flight: the button spins and says Starting…. */
+  isStarting?: boolean;
   // The last round as read from the database, for a cold load where the store
   // was never filled. The store wins when it has a round (this tab was there).
   finishedRound?: { roundNumber: number; winners: GameWinner[] } | null;
 }
 
-export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound, finishedRound }: GameOverProps) {
+export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound, isStarting = false, finishedRound }: GameOverProps) {
   const router = useRouter();
   const store = useGameStore();
   const fromStore = store.roundNumber > 0;
@@ -81,9 +83,16 @@ export function GameOver({ room, currentPlayerId, presentPlayers, onNewRound, fi
         {/* Actions — all one size so the stack reads as a set. */}
         <div className="flex flex-col gap-3">
           {isHost && onNewRound && (
-            <Button size="lg" className="w-full gap-2" onClick={onNewRound}>
-              <RotateCcw className="w-4 h-4" />
-              Play Again
+            // Disabled while it runs, so a second click visibly does nothing
+            // (RoomClient's ref guard already drops it). Held at 85% rather
+            // than the usual 50% so Starting… stays readable.
+            <Button size="lg" className="w-full gap-2 disabled:opacity-85" onClick={onNewRound} disabled={isStarting} aria-busy={isStarting || undefined}>
+              {isStarting ? (
+                <LoaderCircle className="w-4 h-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              {isStarting ? 'Starting…' : 'Play Again'}
             </Button>
           )}
           {!isHost && (
