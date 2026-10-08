@@ -490,7 +490,7 @@ export function GameView({
               gapClass="gap-2"
               // 12px (11px under the banner or on 6×6) is the design size and
               // holds down to ~92px squares — every 5×5 layout at 1280×670 and
-              // up. Only a smaller fitted grid eases the text toward 10px, so
+              // up. Only a smaller fitted grid eases the text toward 11px, so
               // three lines still fit inside the square instead of clipping.
               // cqw is the square's own width: each cell is an @container.
               squareClassName={cn(

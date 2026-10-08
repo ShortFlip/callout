@@ -55,6 +55,9 @@ this order:
 3. Re-mark `players.Insert.claim_code` optional (decision 0003).
 4. Merge.
 
+Tip: copy a migration to the clipboard from PowerShell with
+`Get-Content -Raw "<path>" | Set-Clipboard`, then paste it into the SQL editor.
+
 ## Deployment
 
 Deploys are automatic: pushing to `master` runs the GitHub Actions workflow that

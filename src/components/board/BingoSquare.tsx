@@ -25,7 +25,7 @@ interface BingoSquareProps {
  * the only fill on the board, and the marker rides on top of it unchanged.
  *
  * 16px, stepping down only where it would reach the centred text (three
- * lines, 37.5px at the 10px floor, measured on the page):
+ * lines, 37.5px at the 11px floor, measured on the page):
  * - under 88px wide, 14px — 6×6 under the win banner at 1280×800 (80px), the
  *   History snapshot at 6×6: there three lines start ~21px down, and a 16px
  *   icon at 4px in would reach 21;

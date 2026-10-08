@@ -50,3 +50,12 @@ next-env.d.ts
 # Playwright MCP screenshots
 .playwright-mcp/
 .design/refs/
+
+# Claude Code local state (tracked exceptions below)
+.claude/*
+!.claude/archive/
+!.claude/PUNCHLIST.md
+!.claude/HANDOFF-design-audit.md
+
+# Scratch lists
+squares-list.*

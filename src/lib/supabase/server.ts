@@ -26,7 +26,8 @@ export async function createClient() {
             );
           } catch {
             // setAll called from a Server Component — cookies can't be
-            // mutated there. The middleware handles session refresh instead.
+            // mutated there. No middleware refreshes the session, so the
+            // browser client does it.
           }
         },
       },

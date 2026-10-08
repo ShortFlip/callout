@@ -135,8 +135,8 @@ requirements, not polish.
 
 **Status: specified.** The guardrails below were written first and still bind;
 "Specified by the build" further down records what the upgrade (PRs #7-#12)
-actually settled, and is the reference for anything added next. The palette and
-fonts in CLAUDE.md ("Arcade Lounge") stand. Anything still not covered gets
+actually settled, and is the reference for anything added next. The palette is
+`src/app/globals.css` and the fonts are in CLAUDE.md. Anything still not covered gets
 asked about, not filled in with a framework default.
 
 ### Direction in his words
@@ -159,7 +159,8 @@ moment when someone hits bingo.
   color. The structure never changes between themes. Card presets and app
   themes are separate things and should stay separate.
 - **Readable from across the room.** Player names, progress, and the room code
-  in display size. Monospace for the code and any numbers.
+  in display size. Monospace is for the room and claim codes only; numbers use
+  tabular figures (docs/decisions/0005).
 - **Motion:** 150ms micro, 300ms panel, one long celebratory sequence. Every
   animation respects reduced-motion.
 - **Glass over gradient.** Panels are translucent with a subtle top highlight,
@@ -264,7 +265,7 @@ and do not follow the app theme.
    banner takes its space from the layout rather than covering it.
 3. Two confetti cannons fire from the top corners for **1.5 s** — violet,
    amber, gold, pink.
-4. The winner's rail card turns gold: gold border and glow, a mono `1ST`
+4. The winner's rail card turns gold: gold border and glow, a `1ST`
    beside the score, gold progress fill, and the miniature outlines the winning
    line in gold instead of emerald.
 
@@ -287,7 +288,7 @@ forces; 2 px gaps, 6 px frame padding, radius 6 on the frame and 2 on a tile.
 | Emerald 1 px outline | On their best line |
 | Gold 1 px outline | The line that won it |
 
-A rail card pairs the miniature with the name, a mono `N / 25`, a 4 px progress
+A rail card pairs the miniature with the name, a tabular `N / 25`, a 4 px progress
 bar (emerald when they are one away, amber otherwise) and the same best-line
 sentence my own board uses: `Row 3 — one away`, `Column 2 — two away`,
 `No line yet`, `Bingo — column 2`. The name has its line to itself — no avatar
@@ -300,10 +301,10 @@ may take two balanced lines inside the miniature's height.
 covers the board.
 
 - **Reconnecting.** The `LIVE` pill is replaced by a 3 px amber bar spanning
-  the full width under the header, glowing, with a mono `RECONNECTING` at the
+  the full width under the header, glowing, with a `RECONNECTING` at the
   right edge. The board stays markable and catches up when the channel returns.
 - **Syncing.** A player whose marks have not arrived renders their miniature at
-  45 % opacity with a mono `SYNCING` pill where the score goes — never `0 / 25`,
+  45 % opacity with a `SYNCING` pill where the score goes — never `0 / 25`,
   which would be a lie about someone's board. They also sort to the bottom of
   the rail: an unknown board must not outrank a known one.
 
@@ -377,42 +378,3 @@ One line each, dated, so they are not relitigated.
   corners; before, the colour showed only between squares and the outer row
   "looked truncated". Styles cut to four: Default, Classic, Neon, Slate
   (Ocean, Sunset, Forest and Retro removed).
-
----
-
-## Build findings (2026-09-07 audit, feed into the plan)
-
-Ryann's asks after approving the mockups: persistent identity without
-signup, history of games played, and a review of import + randomize.
-
-**Identity.** Anchor is a localStorage UUID matched to `players.browser_id`.
-Same browser a week later works, avatar included (Supabase Storage,
-public URL on the player row). Cleared site data, a new browser, or a new
-PC silently creates a new player and orphans all history. The anonymous
-auth session exists but is never used as a lookup key. Requirement: a
-short **claim code** on the profile ("Enter this on another PC to be you
-again") that re-links `browser_id` to the existing row. Three friends, no
-signup, so this is the whole recovery story.
-
-**History.** History shows only your own rows: card, room, round, win
-badge, your board. It does not show who else played or who won.
-Leaderboard fetches every `game_players` row for everyone and counts
-cancelled games as played. `game_nights` table is dead. Requirement:
-history is per **night** (room), lists every player and the winner per
-round; leaderboard is scoped to the friend group and ignores cancelled
-games.
-
-**Import + randomize.** Parser splits on newlines only, no commas, no
-dedup. Fisher-Yates + mulberry32 are correct; each player gets a
-different card per round from seed + playerId. Two real bugs:
-
-- Pasting more lines than squares **silently truncates** at import. The
-  surplus-pool logic in `shuffle.ts` (different random subset per round)
-  exists but is unreachable because templates cap at N². Requirement:
-  templates hold the whole list; each round draws N² (or N²−1 with free
-  space) from it per player. This is the feature he thinks he built.
-- Pasting fewer lines than squares renders a short board. Requirement:
-  block save with a clear count ("24 needed, 10 so far").
-
-Also: accept commas as separators when a paste has no newlines, dedupe
-case-insensitively, and show the surplus count ("40 items, 24 per card").
