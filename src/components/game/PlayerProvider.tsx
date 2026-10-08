@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { getBrowserId } from '@/lib/utils/browser-id';
+import { toast } from 'sonner';
+import { getBrowserId, setBrowserId } from '@/lib/utils/browser-id';
 import { usePlayerStore } from '@/stores/playerStore';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { DisplayNameDialog } from './DisplayNameDialog';
@@ -25,8 +26,9 @@ interface PlayerProviderProps {
  * name prompt if this is the user's first visit.
  *
  * Flow:
- * 1. Get (or create) the browser UUID from localStorage
- * 2. Ensure we have a Supabase auth session — sign in anonymously if not
+ * 1. Ensure we have a Supabase auth session — sign in anonymously if not
+ * 2. Apply a ?claim= link if there is one, then get (or create) the browser
+ *    UUID from localStorage
  * 3. Look up existing player record by browser_id
  * 4. If found → load into store, done
  * 5. If not found → show DisplayNameDialog → create player → load into store
@@ -49,7 +51,6 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   async function initPlayer() {
     const supabase = createClient();
-    const browserId = getBrowserId();
 
     // Ensure we always have a Supabase auth session.
     // Anonymous sessions give us an auth.uid() for RLS without requiring sign-up.
@@ -62,6 +63,12 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
         session = data.session;
       }
     }
+
+    // A claim link (?claim=CODE) has to run before the browserId is read, so a
+    // friend who clicks it lands as their own player and never sees the name
+    // prompt, which would otherwise leave a throwaway player row behind.
+    await applyClaimLink(supabase);
+    const browserId = getBrowserId();
 
     // Look for an existing player tied to this browser. `error` and "no row"
     // are separate answers — see step 6 above. Through an RPC because
@@ -104,6 +111,40 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       // First visit — stop the loading spinner and show the name prompt
       setLoading(false);
       setNeedsName(true);
+    }
+  }
+
+  /**
+   * Point this browser at the player whose claim code is in the URL, the same
+   * read-only re-point ProfileModal's Claim does, then drop the param so a
+   * refresh or a copied address bar never re-claims.
+   */
+  async function applyClaimLink(supabase: ReturnType<typeof createClient>) {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('claim')?.trim().toUpperCase();
+    if (!code) return;
+
+    url.searchParams.delete('claim');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('browser_id, display_name')
+        .eq('claim_code', code)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        toast.error('That link’s code didn’t match a player');
+        return;
+      }
+      setBrowserId(data.browser_id);
+      toast.success(`Welcome back, ${data.display_name}`);
+    } catch (err) {
+      // Fall through to whoever this browser already is; the code still works
+      // by hand in the Profile modal.
+      console.error('Claim link failed:', err);
+      toast.error('Could not check that link. Try again.');
     }
   }
 
