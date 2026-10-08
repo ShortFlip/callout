@@ -128,10 +128,11 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);
 
     try {
+      // Through claim_player, the same RPC as ProfileModal's Claim: claim_code
+      // is not readable on the table (migration 20261007000000), so a direct
+      // .eq('claim_code') would be refused and every link would fail.
       const { data, error } = await supabase
-        .from('players')
-        .select('browser_id, display_name')
-        .eq('claim_code', code)
+        .rpc('claim_player', { p_claim_code: code })
         .maybeSingle();
       if (error) throw error;
       if (!data) {
