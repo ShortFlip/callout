@@ -408,6 +408,7 @@ export type Database = {
     }
     Functions: {
       generate_claim_code: { Args: never; Returns: string }
+      link_player: { Args: { p_player_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

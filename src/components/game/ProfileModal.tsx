@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Camera, Loader2, Copy, KeyRound } from 'lucide-react';
+import { Camera, Loader2, Copy, KeyRound, LogIn, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePlayerStore } from '@/stores/playerStore';
 import { setBrowserId } from '@/lib/utils/browser-id';
@@ -28,7 +28,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
-  const { player, updatePlayer } = usePlayerStore();
+  const { player, updatePlayer, linkedAs } = usePlayerStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState(player?.display_name ?? '');
@@ -37,6 +37,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [claimInput, setClaimInput] = useState('');
   const [isClaiming, setIsClaiming] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // The modal is also opened from the header, which flips `open` without going
   // through handleOpen — and identity resolves after first render, so the
@@ -108,6 +109,24 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
       toast.error('Could not check that code. Try again.');
     } finally {
       setIsClaiming(false);
+    }
+  }
+
+  /**
+   * Leave for Discord and come back to this same page. PlayerProvider finishes
+   * the sign-in on return and links this browser's player to the login.
+   */
+  async function handleDiscordSignIn() {
+    setIsSigningIn(true);
+    const { error } = await createClient().auth.signInWithOAuth({
+      provider: 'discord',
+      options: { redirectTo: window.location.href },
+    });
+    // On success the browser is already navigating away; only a failure stays.
+    if (error) {
+      console.error('Discord sign-in failed:', error);
+      toast.error(`Discord sign-in failed: ${error.message}`);
+      setIsSigningIn(false);
     }
   }
 
@@ -192,23 +211,28 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                 avatarUrl={currentAvatarUrl}
                 size="xl"
               />
-              {/* Camera overlay on hover */}
-              <button
+              {/* Camera overlay on hover. Linked players wear their Discord
+                  avatar (synced every load), so an upload would be overwritten. */}
+              {!linkedAs && <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 aria-label="Change Photo"
               >
                 <Camera className="w-6 h-6 text-white" />
-              </button>
+              </button>}
             </div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-[13px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-            >
-              {currentAvatarUrl ? 'Change Photo' : 'Add a Photo'}
-            </button>
+            {linkedAs ? (
+              <p className="text-[13px] text-muted-foreground">Photo comes from Discord</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[13px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                {currentAvatarUrl ? 'Change Photo' : 'Add a Photo'}
+              </button>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -233,6 +257,29 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
           {/* Theme */}
           <ThemePicker />
 
+          {/* Discord — the identity that is the same on every PC */}
+          <div className="space-y-2">
+            <p className={SECTION_LABEL}>Discord</p>
+            {linkedAs ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                <BadgeCheck className="w-4 h-4 text-success" strokeWidth={1.75} />
+                <span>Linked as <span className="font-semibold">{linkedAs}</span></span>
+              </div>
+            ) : (
+              <>
+                <Button className="w-full" onClick={handleDiscordSignIn} disabled={isSigningIn}>
+                  {isSigningIn
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <LogIn className="w-4 h-4 mr-2" strokeWidth={1.75} />}
+                  Sign in with Discord
+                </Button>
+                <p className="text-[13px] text-muted-foreground">
+                  Be this player on every PC, stats included.
+                </p>
+              </>
+            )}
+          </div>
+
           {/* Claim code — carry this identity to another machine */}
           <div className="space-y-2">
             <p className={SECTION_LABEL}>
@@ -255,7 +302,9 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
               Enter this on another PC to be you again.
             </p>
 
-            <div className="pt-3 border-t border-border space-y-2">
+            {/* A signed-in browser is found by its Discord login, never by
+                browser_id, so pointing it at another row would do nothing. */}
+            {!linkedAs && <div className="pt-3 border-t border-border space-y-2">
               <Label htmlFor="claim-input" className="text-sm font-medium">Have a Code?</Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -281,7 +330,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                   Use Code
                 </Button>
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Stats */}
