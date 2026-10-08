@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { getBrowserId, setBrowserId } from '@/lib/utils/browser-id';
 import { discordProfile, takeOAuthError, type DiscordProfile } from '@/lib/auth/discord';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -27,10 +27,11 @@ interface PlayerProviderProps {
  * name prompt if this is the user's first visit.
  *
  * Flow:
- * 1. Get (or create) the browser UUID from localStorage
- * 2. Ensure we have a Supabase auth session — sign in anonymously if not.
+ * 1. Ensure we have a Supabase auth session — sign in anonymously if not.
  *    A Discord session goes to resolveDiscordPlayer instead (by login, not
  *    by browser) and skips the steps below.
+ * 2. Apply a ?claim= link if there is one, then get (or create) the browser
+ *    UUID from localStorage
  * 3. Look up existing player record by browser_id
  * 4. If found → load into store, done
  * 5. If not found → show DisplayNameDialog → create player → load into store
@@ -53,7 +54,6 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   async function initPlayer() {
     const supabase = createClient();
-    const browserId = getBrowserId();
 
     // A cancelled or misconfigured Discord sign-in lands back here with error
     // params instead of a code. Say what Discord/Supabase said (the setup
@@ -82,13 +82,19 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       }
     }
 
+    // A claim link (?claim=CODE) has to run before the browserId is read, so a
+    // friend who clicks it lands as their own player and never sees the name
+    // prompt, which would otherwise leave a throwaway player row behind.
+    await applyClaimLink(supabase);
+    const browserId = getBrowserId();
+
     // Look for an existing player tied to this browser. `error` and "no row"
-    // are separate answers — see step 6 above.
+    // are separate answers — see step 6 above. Through an RPC because
+    // browser_id and claim_code are not readable on the table (migration
+    // 20261007000000): knowing your browser_id is what proves the row is yours.
     const lookup = await withRetry<Player | null>(async () => {
       const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('browser_id', browserId)
+        .rpc('get_my_player', { p_browser_id: browserId })
         .maybeSingle();
       if (error) {
         console.error('Failed to look up player:', error);
@@ -127,6 +133,41 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   }
 
   /**
+   * Point this browser at the player whose claim code is in the URL, the same
+   * read-only re-point ProfileModal's Claim does, then drop the param so a
+   * refresh or a copied address bar never re-claims.
+   */
+  async function applyClaimLink(supabase: ReturnType<typeof createClient>) {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('claim')?.trim().toUpperCase();
+    if (!code) return;
+
+    url.searchParams.delete('claim');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+
+    try {
+      // Through claim_player, the same RPC as ProfileModal's Claim: claim_code
+      // is not readable on the table (migration 20261007000000), so a direct
+      // .eq('claim_code') would be refused and every link would fail.
+      const { data, error } = await supabase
+        .rpc('claim_player', { p_claim_code: code })
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        toast.error('That link’s code didn’t match a player');
+        return;
+      }
+      setBrowserId(data.browser_id);
+      toast.success(`Welcome back, ${data.display_name}`);
+    } catch (err) {
+      // Fall through to whoever this browser already is; the code still works
+      // by hand in the Profile modal.
+      console.error('Claim link failed:', err);
+      toast.error('Could not check that link. Try again.');
+    }
+  }
+
+  /**
    * Identity for a Discord session: the login, not the browser, finds the row.
    *
    * 1. A row whose auth_id is this login → that's you, on any PC.
@@ -139,15 +180,10 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     const supabase = createClient();
     setLinkedAs(discord.name);
 
+    // Both reads go through RPCs: browser_id and claim_code are not readable
+    // on the table (migration 20261007000000).
     const byLogin = await withRetry<Player | null>(async () => {
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('auth_id', userId)
-        // No unique index on auth_id yet: oldest row wins if two ever exist.
-        .order('created_at')
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_login_player').maybeSingle();
       if (error) {
         console.error('Failed to look up player by login:', error);
         return { ok: false };
@@ -163,9 +199,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     let player = byLogin.value;
     if (!player) {
       const { data: here, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('browser_id', getBrowserId())
+        .rpc('get_my_player', { p_browser_id: getBrowserId() })
         .maybeSingle();
       if (error) {
         console.error('Failed to look up player by browser:', error);
@@ -214,9 +248,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
    */
   async function handleCodeSubmit(code: string): Promise<string | null> {
     const { data, error } = await createClient()
-      .from('players')
-      .select('id')
-      .eq('claim_code', code)
+      .rpc('claim_player', { p_claim_code: code })
       .maybeSingle();
     if (error) return 'Could not check that code. Try again.';
     if (!data) return 'No player has that code.';
@@ -240,17 +272,24 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       setBrowserId(browserId);
     }
 
-    const { data: player, error } = await supabase
+    // No .select() on the insert: returning '*' would need SELECT on
+    // browser_id and claim_code, which the table no longer grants. The new row
+    // (with the claim code its trigger filled) comes back through the RPC.
+    const { error } = await supabase
       .from('players')
       .insert({
         browser_id: browserId,
         auth_id: session?.user.id ?? null,
         display_name: displayName,
-      })
-      .select()
-      .single();
+      });
 
     if (error) throw error; // caught by DisplayNameDialog and shown to user
+
+    const { data: player, error: readError } = await supabase
+      .rpc('get_my_player', { p_browser_id: browserId })
+      .single();
+
+    if (readError) throw readError;
 
     setPlayer(player);
     setNeedsName(false);

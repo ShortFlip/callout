@@ -14,6 +14,10 @@ on:
     - cron: '0 16 * * 1,4'
   workflow_dispatch: # manual trigger for testing
 
+# The job never touches the repo; read-only is the least GitHub allows.
+permissions:
+  contents: read
+
 jobs:
   ping:
     runs-on: ubuntu-latest
@@ -23,7 +27,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          # Lightweight select against the players table (public read policy).
+          # Lightweight select against the players table. Only `id` is asked for:
+          # browser_id and claim_code are not readable (migration 20261007000000).
           # -f makes curl exit non-zero on HTTP errors so a paused/broken
           # project fails the run and triggers a GitHub failure email.
           curl -sf -m 30 \

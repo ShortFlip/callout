@@ -68,6 +68,8 @@ export async function pingSupabase({
 
   // Same lightweight query keepalive.yml runs: players has a public read
   // policy, so the anon key is enough, and limit=1 keeps the response tiny.
+  // Only `id`: browser_id and claim_code are not granted to anon (migration
+  // 20261007000000), so `select=*` here would fail the ping.
   const response = await fetchFn(`${baseUrl}/rest/v1/players?select=id&limit=1`, {
     method: 'GET',
     headers: {

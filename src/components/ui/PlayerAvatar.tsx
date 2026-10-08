@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { playerColor, getInitials } from '@/lib/utils/player-color';
+import { discordAvatarUrl, ownStorageUrl } from '@/lib/storage-url';
 
 const SIZE_CLASSES = {
   // Initials follow the 13px floor down to the smallest circle: two capitals
@@ -33,12 +34,19 @@ export function PlayerAvatar({
   className,
 }: PlayerAvatarProps) {
   const sizeClass = SIZE_CLASSES[size];
+  // Only our own avatars bucket is drawn (anyone can write avatar_url, and an
+  // outside host would see every friend's IP). A blob: URL is the Profile
+  // modal's local preview of a file not uploaded yet; it never leaves the tab.
+  // A linked player's Discord avatar is the one outside host allowed.
+  const src = avatarUrl?.startsWith('blob:')
+    ? avatarUrl
+    : ownStorageUrl(avatarUrl, 'avatars') ?? discordAvatarUrl(avatarUrl);
 
-  if (avatarUrl) {
+  if (src) {
     return (
       <div className={cn('rounded-full overflow-hidden shrink-0', sizeClass, className)}>
         <Image
-          src={avatarUrl}
+          src={src}
           alt={displayName}
           width={80}
           height={80}

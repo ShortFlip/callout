@@ -80,8 +80,14 @@ The DEV harness in `src/lib/dev-state.ts` works on any in-game room:
   (`on_conflict`, ignore or merge duplicates), updates and deletes, unique
   constraints as `23505`. Not supported: `or=` filters and embed-level
   order/limit (a request using them gets a clear 400).
-- **RPC**: `generate_claim_code`.
-- **Storage**: public reads, uploads and removes, in memory.
+- **RPC**: `generate_claim_code`, `get_my_player` (where `MOCK_ADOPT` now
+  applies) and `claim_player`.
+- **Column grants**: like the live project after migration 20261007000000,
+  reading `players.*`, `browser_id` or `claim_code` (select, filter or a
+  write's returned row) or writing those two answers `42501`.
+- **Storage**: public reads, uploads and removes, in memory. Writes must sit
+  under a player id folder (`<playerId>/…`), a rough stand-in for the owner
+  policies; the real ones also check it is the caller's own id.
 - **Realtime** (protocol 2.0.0, using `ws` already in `node_modules`): join,
   heartbeat, broadcast relay with acks, presence, and `postgres_changes`
   for writes made through the mock.

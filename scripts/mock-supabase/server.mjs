@@ -9,7 +9,9 @@
 //   /auth/v1/*          anonymous sign-in, token refresh, user, logout
 //   /rest/v1/<table>    PostgREST subset: select with embeds, eq/in/is/…,
 //                       order, limit/offset, single, insert/upsert/update/delete
-//   /rest/v1/rpc/*      generate_claim_code
+//   /rest/v1/rpc/*      generate_claim_code, get_my_player, claim_player
+//                       (players.browser_id/claim_code are column-restricted,
+//                       as migration 20261007000000 makes them)
 //   /storage/v1/*       public object reads, uploads, removes (in memory)
 //   /realtime/v1/websocket  Phoenix channels: join, heartbeat, broadcast relay,
 //                       presence (with fake friends online), postgres_changes
@@ -555,8 +557,18 @@ async function handleRest(req, res, url) {
 
   if (table.startsWith('rpc/')) {
     const fn = table.slice(4);
-    await readBody(req);
+    const args = parseJson(await readBody(req)) ?? {};
     if (fn === 'generate_claim_code') return send(req, res, 200, claimCode());
+    // SECURITY DEFINER in the real migration: these two see every column.
+    if (fn === 'get_my_player') {
+      const row = adoptedPlayer(String(args.p_browser_id ?? ''));
+      return respondRows(req, res, 200, 'players', { rows: row ? [{ ...row }] : [], total: row ? 1 : 0, offset: 0 }, parsePrefer(req), false);
+    }
+    if (fn === 'claim_player') {
+      const row = db.players.find((p) => p.claim_code === args.p_claim_code);
+      const rows = row ? [{ id: row.id, browser_id: row.browser_id, display_name: row.display_name }] : [];
+      return respondRows(req, res, 200, 'players', { rows, total: rows.length, offset: 0 }, parsePrefer(req), false);
+    }
     throw new PgError(404, 'PGRST202', `Could not find the function public.${fn} in the schema cache`);
   }
 
@@ -571,9 +583,10 @@ async function handleRest(req, res, url) {
   }
   const prefer = parsePrefer(req);
   const params = url.searchParams;
+  assertColumnPrivileges(req, table, params, prefer);
 
   if (req.method === 'GET' || req.method === 'HEAD') {
-    return respondRows(req, res, 200, table, selectRows(table, db[table], adopt(table, params)), prefer, false);
+    return respondRows(req, res, 200, table, selectRows(table, db[table], params), prefer, false);
   }
 
   if (req.method === 'POST') {
@@ -607,6 +620,7 @@ async function handleRest(req, res, url) {
 
   if (req.method === 'PATCH') {
     const patch = parseJson(await readBody(req)) ?? {};
+    if (table === 'players' && Object.keys(patch).some((k) => HIDDEN_PLAYER_COLUMNS.has(k))) throw deniedPlayers();
     const { filters } = parseQuery(params);
     const top = filters.get('') ?? [];
     const targets = db[table].filter((r) => top.every((p) => p(r)));
@@ -643,21 +657,47 @@ async function handleRest(req, res, url) {
 }
 
 /**
- * Adoption: a players lookup by an unknown browser_id is answered as the
+ * Adoption: a get_my_player lookup by an unknown browser_id is answered as the
  * MOCK_ADOPT fixture player, so a fresh headless browser opens as Ryann
- * instead of on the name prompt. Returns the (possibly rewritten) params.
+ * instead of on the name prompt. Returns the player row, or null.
  */
-function adopt(table, params) {
-  if (table !== 'players' || ADOPT === 'none') return params;
-  const lookup = params.get('browser_id');
-  if (!lookup?.startsWith('eq.')) return params;
-  if (db.players.some((p) => p.browser_id === lookup.slice(3))) return params;
+function adoptedPlayer(browserId) {
+  const own = db.players.find((p) => p.browser_id === browserId);
+  if (own || ADOPT === 'none') return own ?? null;
   const adopted = db.players.find((p) => p.display_name.toLowerCase() === ADOPT);
-  if (!adopted) return params;
-  log(`adopt: unknown browser ${lookup.slice(3, 15)}... answered as ${adopted.display_name}`);
-  const next = new URLSearchParams(params);
-  next.set('browser_id', `eq.${adopted.browser_id}`);
-  return next;
+  if (adopted) log(`adopt: unknown browser ${browserId.slice(0, 12)}... answered as ${adopted.display_name}`);
+  return adopted ?? null;
+}
+
+/** players columns anon/authenticated may not read or write (migration 20261007000000). */
+const HIDDEN_PLAYER_COLUMNS = new Set(['browser_id', 'claim_code']);
+
+function deniedPlayers() {
+  return new PgError(401, '42501', 'permission denied for table players');
+}
+
+/** Does this select tree read a hidden players column (or players.*)? `table` is the tree's own table. */
+function readsHiddenPlayerColumn(table, nodes) {
+  for (const node of nodes) {
+    if (node.kind === 'embed') {
+      if (readsHiddenPlayerColumn(node.rel, node.children)) return true;
+    } else if (table === 'players' && (node.kind === 'all' || HIDDEN_PLAYER_COLUMNS.has(node.name))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Roughly what the real column grants do: reading players.* or
+ * browser_id/claim_code (select, filter, or a write's returned row) and
+ * writing browser_id/claim_code are refused, so code that still does it fails
+ * here the way it would against the live project.
+ */
+function assertColumnPrivileges(req, table, params, prefer) {
+  const returns = req.method === 'GET' || req.method === 'HEAD' || prefer.return === 'representation';
+  if (returns && readsHiddenPlayerColumn(table, parseSelect(params.get('select')))) throw deniedPlayers();
+  if (table === 'players' && [...params.keys()].some((k) => HIDDEN_PLAYER_COLUMNS.has(k))) throw deniedPlayers();
 }
 
 /** A write's returned rows are shaped by `select` only; its filters already chose them. */
@@ -668,6 +708,12 @@ function selectOnly(params) {
 }
 
 // ── Storage ──────────────────────────────────────────────────────────────────
+
+/** True when an object path's first folder is a player id (see the owner policies). */
+function ownerFolder(objectPath) {
+  const [first, ...rest] = String(objectPath).split('/');
+  return rest.length > 0 && db.players.some((p) => p.id === first);
+}
 
 async function handleStorage(req, res, url) {
   const path = decodeURIComponent(url.pathname.replace(/^\/storage\/v1\//, ''));
@@ -681,13 +727,17 @@ async function handleStorage(req, res, url) {
   if (objectMatch && (req.method === 'POST' || req.method === 'PUT') && objectMatch[2]) {
     const body = await readBody(req);
     const key = `${objectMatch[1]}/${objectMatch[2]}`;
+    // Roughly the owner-folder policy: writes must sit under a player's id.
+    // (The real one checks it is YOUR id via auth.uid(); the mock's adopted
+    // browser has a different auth user than the fixture, so it can't.)
+    if (!ownerFolder(objectMatch[2])) return send(req, res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
     // supabase-js sends a File/Blob as the raw body (or multipart from Node); the bytes are what matter here.
     storage[key] = { contentType: req.headers['content-type'] ?? 'application/octet-stream', body };
     return send(req, res, 200, { Key: key, Id: randomUUID() });
   }
   if (objectMatch && req.method === 'DELETE' && !objectMatch[2]) {
     const body = parseJson(await readBody(req)) ?? {};
-    const removed = (body.prefixes ?? []).map((p) => {
+    const removed = (body.prefixes ?? []).filter(ownerFolder).map((p) => {
       delete storage[`${objectMatch[1]}/${p}`];
       return { name: p, bucket_id: objectMatch[1] };
     });

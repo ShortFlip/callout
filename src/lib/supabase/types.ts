@@ -407,8 +407,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_player: {
+        Args: { p_claim_code: string }
+        Returns: {
+          browser_id: string
+          display_name: string
+          id: string
+        }[]
+      }
       generate_claim_code: { Args: never; Returns: string }
+      get_login_player: {
+        Args: never
+        Returns: {
+          auth_id: string | null
+          avatar_url: string | null
+          browser_id: string
+          claim_code: string
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "players"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       link_player: { Args: { p_player_id: string }; Returns: boolean }
+      get_my_player: {
+        Args: { p_browser_id: string }
+        Returns: {
+          auth_id: string | null
+          avatar_url: string | null
+          browser_id: string
+          claim_code: string
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "players"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never
