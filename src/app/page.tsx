@@ -101,7 +101,7 @@ function HomePageContent() {
         <div className="flex min-w-0 items-center gap-6">
           <CalloutMark size={88} />
           <div className="min-w-0 space-y-2">
-            <h1 className="font-display text-7xl font-black leading-none tracking-tight">SQUARES</h1>
+            <h1 className="font-display text-7xl font-black leading-none tracking-tight">CALLOUT</h1>
             <p className="text-muted-foreground">Real-time bingo for your friend group.</p>
             {crewRow && <div className="pt-1">{crewRow}</div>}
           </div>
