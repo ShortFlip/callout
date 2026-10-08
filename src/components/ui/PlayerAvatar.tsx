@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { playerColor, getInitials } from '@/lib/utils/player-color';
-import { ownStorageUrl } from '@/lib/storage-url';
+import { discordAvatarUrl, ownStorageUrl } from '@/lib/storage-url';
 
 const SIZE_CLASSES = {
   // Initials follow the 13px floor down to the smallest circle: two capitals
@@ -37,7 +37,10 @@ export function PlayerAvatar({
   // Only our own avatars bucket is drawn (anyone can write avatar_url, and an
   // outside host would see every friend's IP). A blob: URL is the Profile
   // modal's local preview of a file not uploaded yet; it never leaves the tab.
-  const src = avatarUrl?.startsWith('blob:') ? avatarUrl : ownStorageUrl(avatarUrl, 'avatars');
+  // A linked player's Discord avatar is the one outside host allowed.
+  const src = avatarUrl?.startsWith('blob:')
+    ? avatarUrl
+    : ownStorageUrl(avatarUrl, 'avatars') ?? discordAvatarUrl(avatarUrl);
 
   if (src) {
     return (

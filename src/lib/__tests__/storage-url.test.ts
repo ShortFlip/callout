@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { avatarPath, gameLogoPath, ownStorageUrl } from '@/lib/storage-url';
+import { avatarPath, discordAvatarUrl, gameLogoPath, ownStorageUrl } from '@/lib/storage-url';
 
 const BASE = 'https://abc.supabase.co';
 const MOCK = 'http://127.0.0.1:54399';
@@ -52,5 +52,21 @@ describe('storage paths', () => {
   it('puts each file under its owner player id, the folder the policy checks', () => {
     expect(avatarPath('p1')).toBe('p1/avatar');
     expect(gameLogoPath('p1', 't1')).toBe('p1/t1.png');
+  });
+});
+
+describe('discordAvatarUrl', () => {
+  it('accepts a Discord CDN user avatar, animated ones included', () => {
+    const still = 'https://cdn.discordapp.com/avatars/80351110224678912/1a2b3c4d.png';
+    const animated = 'https://cdn.discordapp.com/avatars/80351110224678912/a_1a2b3c4d.gif';
+    expect(discordAvatarUrl(still)).toBe(still);
+    expect(discordAvatarUrl(animated)).toBe(animated);
+  });
+
+  it('refuses other paths and lookalike hosts', () => {
+    expect(discordAvatarUrl('https://cdn.discordapp.com/attachments/1/2/x.png')).toBeNull();
+    expect(discordAvatarUrl('https://cdn.discordapp.com.evil.com/avatars/1/ab.png')).toBeNull();
+    expect(discordAvatarUrl('http://cdn.discordapp.com/avatars/1/ab.png')).toBeNull();
+    expect(discordAvatarUrl(null)).toBeNull();
   });
 });

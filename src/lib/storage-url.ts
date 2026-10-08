@@ -39,6 +39,28 @@ export function ownStorageUrl(
   return value;
 }
 
+/**
+ * The URL itself when it is a Discord CDN user avatar, else null.
+ *
+ * Linked players wear their Discord avatar (decision 0007). Drawing it makes
+ * each friend's browser call Discord's CDN, an exception to the rule above
+ * accepted because all three already run Discord, so it learns nothing new.
+ * The path is pinned to /avatars/<user id>/<hash>.<ext> so a planted
+ * attachment URL on the same host is still refused.
+ */
+export function discordAvatarUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.origin !== 'https://cdn.discordapp.com') return null;
+  if (!/^\/avatars\/\d+\/(a_)?[0-9a-f]+\.(png|webp|gif|jpg)$/.test(url.pathname)) return null;
+  return value;
+}
+
 /** Where a player's avatar lives: their own folder (the storage policy's owner check) and one fixed name. */
 export function avatarPath(playerId: string): string {
   return `${playerId}/avatar`;
