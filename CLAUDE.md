@@ -2,7 +2,7 @@
 
 > A real-time multiplayer bingo platform for small friend groups.
 
-**Callout** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions — no account required (but optionally supported).
+**Callout** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions. Nobody makes an account: play starts on an anonymous session, and signing in with Discord is an optional way to keep one identity across PCs.
 
 **Target audience:** 3-5 friends playing recurring bingo nights.
 
@@ -19,7 +19,7 @@
 | State Management | Zustand | 5.x |
 | Database | Supabase (PostgreSQL) | - |
 | Real-time | Supabase Realtime (WebSocket channels) | - |
-| Auth | Supabase Auth (anonymous; email/Google not built) | - |
+| Auth | Supabase Auth (anonymous by default; optional Discord login; no email) | - |
 | File Storage | Supabase Storage (images) | - |
 | Testing | Vitest | 3.x |
 | Hosting | Cloudflare Workers (OpenNext), deployed by GitHub Actions on push to `master` | - |
@@ -35,38 +35,12 @@ defaults; follow its guardrails and ask.
 
 ## Design Direction
 
-### Aesthetic: "Arcade Lounge"
-Think neon-lit bowling alley meets modern game night — playful but polished. NOT corporate SaaS, NOT kiddy/classroom.
+"Arcade Lounge": a neon-lit bowling alley meets game night, playful but polished. Not corporate SaaS, not kiddy. `DESIGN.md` is the binding design system. Colors live in `src/app/globals.css` (oklch theme blocks, six app themes in `src/lib/theme.ts`); do not copy hex values here.
 
-### Design Tokens
-- **Background:** Deep charcoal (`#0f0f14`) with subtle noise texture
-- **Surface:** Slightly lighter (`#1a1a24`) for cards, panels, modals
-- **Primary accent:** Electric violet (`#7c3aed`) — used sparingly for CTAs, active states, winner effects
-- **Secondary accent:** Warm amber (`#f59e0b`) — marked squares, highlights
-- **Success:** Emerald (`#10b981`) — bingo confirmation, win states
-- **Danger:** Rose (`#f43f5e`) — errors, destructive actions
-- **Text primary:** `#f1f5f9`
-- **Text secondary:** `#94a3b8`
-- **Grid lines:** `#2d2d3a` default, customizable per card template
-
-### Typography
-- **Display/Headers:** Outfit — bold and characterful; NOT Inter, NOT Roboto
-- **Body/UI:** Plus Jakarta Sans; numbers use `tabular-nums`, never mono
-- **Monospace (codes only):** JetBrains Mono, for the room and claim codes read aloud or typed (O/0, I/1)
-
-### Key Visual Elements
-- Squares glow subtly when marked (a 150ms dab, then a steady glow; no pulse — the bingo banner is the one loud moment)
-- Winner gets a confetti cannon animation + board highlight
-- Caller panel has a "now calling" card flip animation
-- Room code displayed large and bold — easy to read aloud over a call
-- Dark mode is default; light mode supported
-
-### Component Patterns
-- Use shadcn/ui as the base — customize colors/radius to match tokens
-- Border radius: `rounded-lg` (8px) for cards, `rounded-md` (6px) for buttons
-- Consistent 4px spacing scale (Tailwind default)
-- All interactive elements need hover, active, focus, and disabled states
-- Transitions: 150ms ease for micro-interactions, 300ms for panel/modal transitions
+- **Type:** Outfit for display, Plus Jakarta Sans for body and UI (numbers use `tabular-nums`, never mono), JetBrains Mono only for room and claim codes (O/0, I/1).
+- **Components:** shadcn/ui as the base; radius caps at 10 (panels 10, cards 8, controls 6); 4px spacing scale; every interactive element has hover, active, focus and disabled states.
+- **Motion:** 150ms micro-interactions, 300ms panels and modals. A marked square dabs once and then glows steadily; the bingo banner is the one loud moment. Confetti and sound are non-negotiable.
+- **Mode:** dark is the default, light is supported.
 
 ---
 
@@ -96,8 +70,9 @@ The payload types live in `useRealtimeRoom.ts`.
 **Authority model:** Host is the source of truth for game progression. Only the host can call items and reset rounds.
 
 ### Identity, cards, wins
-- Identity is a `localStorage` `browserId` plus a Supabase anonymous session; a
-  new PC re-points at an existing player with `players.claim_code`.
+- Identity is a Supabase session. Anonymous play finds its player by a `localStorage` `browserId`, and a
+  new PC re-points at an existing player with `players.claim_code`. A Discord
+  login finds the player by `auth_id` instead (decision 0007).
 - **Seed-based RNG:** Use a seeded PRNG (e.g., `mulberry32`) so each player's card is reproducible from `(templateId, gameSeed, playerId)`. Every round draws N² items from the template's pool (Fisher-Yates, or column-locked); the card is also stored in `game_players.card_data`.
 
 ### Win Detection
@@ -117,113 +92,45 @@ The schema is `supabase/migrations/` plus the generated `src/lib/supabase/types.
 
 ## Project Structure
 
+Directories, plus a note only where the filename does not say it. Tests sit in
+`__tests__/` beside the code they cover.
+
 ```
 callout/
 ├── src/
-│   ├── app/                          # Next.js App Router pages
-│   │   ├── layout.tsx                # Root layout (fonts, theme, player provider)
-│   │   ├── globals.css               # Tokens, theme blocks, glass + animation utilities
-│   │   ├── page.tsx                  # Landing — create, join, Rejoin chip
-│   │   ├── library/page.tsx          # Library — items pane + card builder
-│   │   ├── room/[code]/page.tsx      # Game room — lobby → playing → game over
-│   │   ├── history/page.tsx          # Nights (one per room) + per-round drill-down
-│   │   └── leaderboard/page.tsx      # Co-player rankings
-│   │
+│   ├── app/                      # Pages: / (create, join, Rejoin chip), /library,
+│   │                             #   /room/[code], /history, /leaderboard; error.tsx
+│   │                             #   and not-found.tsx; globals.css = tokens, themes, utilities
 │   ├── components/
-│   │   ├── board/
-│   │   │   ├── BingoBoard.tsx        # The NxN grid — marking, hot lane, called wash
-│   │   │   ├── BingoSquare.tsx       # One square — text, image, marked/called state
-│   │   │   ├── MiniBoard.tsx         # Someone else's board at ~90–108px, glanceable
-│   │   │   ├── CardPreview.tsx       # A saved card's tiles in game colours (Home, Lobby)
-│   │   │   ├── BoardLegend.tsx       # Key to the card's game marks: icon, colour, name
-│   │   │   ├── GameMark.tsx          # One game's mark: uploaded logo, else its icon
-│   │   │   └── BoardSkeleton.tsx     # N×N outline while the card loads (no spinner)
-│   │   ├── game/
-│   │   │   ├── RoomClient.tsx        # Room state machine + all Supabase writes
-│   │   │   ├── GameLobby.tsx         # Pre-game room — code, crew seats, card, rules
-│   │   │   ├── GameView.tsx          # The Scoreboard screen: header, hero board, rail
-│   │   │   ├── RailCard.tsx          # One other player in the rail — mini + progress
-│   │   │   ├── WinBanner.tsx         # In-flow gold win band (never an overlay)
-│   │   │   ├── HostControls.tsx      # New Round / End Night — used by header AND banner
-│   │   │   ├── GameOver.tsx          # Night over — Play Again (host) or waiting copy
-│   │   │   ├── CallerPanel.tsx       # Traditional mode only — call list, next button
-│   │   │   ├── CalledItems.tsx       # Traditional mode only — call history
-│   │   │   ├── SwapPicker.tsx        # Host's mid-round game swap, picked not rolled
-│   │   │   ├── GameSkeleton.tsx      # GameView's frame before the card is ready
-│   │   │   ├── CreateRoomDialog.tsx  # Name + template + settings
-│   │   │   ├── TemplateList.tsx      # Saved templates on the landing page
-│   │   │   ├── DisplayNameDialog.tsx # First-visit name prompt
-│   │   │   ├── PlayerProvider.tsx    # Identity resolution at the app root
-│   │   │   ├── ProfileModal.tsx      # Name, avatar, theme, claim code (no /profile page)
-│   │   │   └── ThemePicker.tsx       # The six app themes
-│   │   ├── home/CrewSummary.tsx      # Home's crew avatars row
-│   │   ├── layout/                   # RoomCodeDisplay, CalloutMark (logo), ServerUnreachable
-│   │   ├── library/                  # Library panes, import, mix control
-│   │   ├── stats/PlayerStats.tsx
-│   │   └── ui/                       # shadcn/ui primitives + PlayerAvatar
-│   │
+│   │   ├── board/                # BingoBoard (grid, hot lane), BingoSquare, MiniBoard (rail), GameMark
+│   │   ├── game/                 # RoomClient = room state machine + all Supabase writes;
+│   │   │                         #   GameLobby, GameView (hero board + rail), WinBanner, GameOver;
+│   │   │                         #   CallerPanel/CalledItems are traditional mode only;
+│   │   │                         #   PlayerProvider resolves identity at the app root
+│   │   ├── home/  library/  stats/
+│   │   ├── layout/               # StatusPage (offline/no-room/error screens), LoadError
+│   │   │                         #   (failed read + Try Again), CalloutMark (logo)
+│   │   └── ui/                   # shadcn primitives + PlayerAvatar, skeleton-rows
 │   ├── lib/
-│   │   ├── supabase/{client,server,types}.ts
-│   │   ├── supabase/paging.ts        # readAllPages(In): every row past the 1,000 cap
-│   │   ├── game/
-│   │   │   ├── shuffle.ts            # Fisher-Yates + column-locked; draws N² from the pool
-│   │   │   ├── win-detection.ts      # checkWin + bestLine/bestLineLabel
-│   │   │   ├── seed-rng.ts           # Seeded PRNG (mulberry32 behind seededRng)
-│   │   │   ├── room-code.ts          # 6-char codes, unambiguous alphabet
-│   │   │   ├── call-list.ts          # Randomized call order (traditional mode)
-│   │   │   ├── game-setup.ts         # Shared round bootstrap: seed, items, call list
-│   │   │   ├── game-players.ts       # loadGamePlayers — everyone's cards + marks
-│   │   │   ├── create-round.ts       # Insert a round + build its game_started payload
-│   │   │   ├── co-players.ts         # My rooms + every co-player row (leaderboard, Home)
-│   │   │   ├── card-builder.ts       # Squares per game on the library's card pane
-│   │   │   ├── restore.ts            # Which card a rejoining player sees
-│   │   │   ├── retract.ts            # Undoing a win when the winner unmarks
-│   │   │   ├── stats.ts              # Shared rules turning rows into stats
-│   │   │   ├── swap-games.ts         # Mid-round game swap
-│   │   │   ├── import.ts             # parseImport — newlines then commas, dedupe
-│   │   │   └── __tests__/            # Vitest for most of the above
-│   │   ├── library/                  # Library API, card draft, hosting, legend
-│   │   ├── realtime/                 # drop-channel (0006), catch-up reads, send queue key
-│   │   ├── utils/
-│   │   │   ├── browser-id.ts         # localStorage UUID identity
-│   │   │   ├── last-room.ts          # Remembers the last room for the Rejoin chip
-│   │   │   ├── copy-link.ts          # Guarded clipboard write + toast fallback
-│   │   │   ├── player-color.ts       # Deterministic avatar color + initials
-│   │   │   └── retry.ts              # Short backoff for a read/write that must land
-│   │   ├── utils.ts                  # cn() — clsx + tailwind-merge
-│   │   ├── theme.ts                  # The six app themes
-│   │   ├── card-styles.ts            # Card style presets
-│   │   ├── sound.ts                  # Web Audio synthesis — no audio files
-│   │   ├── win-confetti.ts           # The two-cannon burst and the second-place burst
-│   │   ├── achievements.ts           # Badges derived from stats
-│   │   ├── hero-fit.ts               # Hero board sizing (GameView + its skeleton)
-│   │   ├── label.ts / pill.ts        # SECTION_LABEL caption and the pill scale
-│   │   ├── game-colors.ts            # Game colour keys → colours
-│   │   ├── keepalive.ts              # Supabase ping for the Worker Cron Trigger (pure, no Next)
-│   │   └── dev-state.ts              # `?state=` harness, DEV-only, stripped from prod
-│   │
-│   ├── stores/                       # Zustand: gameStore, playerStore
-│   │   └── libraryStore.ts           # Library items, tags, filter and the card draft
-│   ├── hooks/                        # useRealtimeRoom, useGameState, usePlayer, useLegendNamesFit
-│   └── types/                        # game.ts, card.ts, player.ts, library.ts
-│
-├── supabase/migrations/              # 0001 schema → RLS fixes → avatars →
-│                                     # enable_realtime → claim_codes →
-│                                     # unique_round_number → item_library → game_logos
-├── .design/                          # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
-├── .github/workflows/deploy.yml      # PR: gates + bundle dry run. master: gates + deploy
-├── .github/workflows/keepalive.yml   # Twice-weekly Supabase ping (one of two pingers)
-├── custom-worker.ts                  # Worker entry: OpenNext fetch + keepalive Cron handler
-├── public/                           # Static SVGs only — sounds are synthesized
-├── CLAUDE.md                         # ← You are here
-├── DESIGN.md                         # Design intent; Part 1 binding
-├── vitest.config.ts
-├── next.config.ts
-├── open-next.config.ts
-├── wrangler.toml
-├── tsconfig.json
-├── components.json
-└── README.md
+│   │   ├── supabase/             # client, server, generated types, paging.ts (reads past 1,000 rows)
+│   │   ├── game/                 # Pure rules: shuffle, win-detection, game-setup, restore, retract,
+│   │   │                         #   stats, swap-games; own-row.ts = this player's game_players row
+│   │   ├── library/  realtime/   # realtime: drop-channel (0006), catch-up reads, send queue key
+│   │   ├── auth/discord.ts       # Discord profile from a session (0007)
+│   │   ├── utils/                # browser-id, last-room, copy-link, player-color, retry
+│   │   ├── storage-url.ts        # Only our own Storage URLs get drawn as images
+│   │   ├── keepalive.ts          # Supabase ping for the Worker Cron Trigger (pure, no Next)
+│   │   └── dev-state.ts          # `?state=` harness, DEV-only, stripped from prod
+│   ├── stores/                   # Zustand: gameStore, playerStore, libraryStore
+│   ├── hooks/                    # useRealtimeRoom (the only channel owner), useGameState, usePlayer
+│   └── types/
+├── supabase/migrations/          # Timestamped SQL, applied by hand (README "Database")
+├── scripts/mock-supabase/        # Fake Supabase behind `npm run dev:mock`
+├── docs/                         # decisions/ (the index below), audits/, plans/, spec/
+├── .design/                      # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
+├── .github/workflows/            # deploy.yml (PR gates, master deploy), keepalive.yml
+├── custom-worker.ts              # Worker entry: OpenNext fetch + keepalive Cron handler
+└── DESIGN.md, README.md, wrangler.toml, open-next.config.ts, next.config.ts, vitest.config.ts
 ```
 
 Styling is Tailwind v4 — the theme lives in `globals.css` (`@theme inline`), so
@@ -238,7 +145,7 @@ but is unused: a **night is a room**, and `/history` groups by room.
 - **TypeScript strict mode** — no `any` unless absolutely unavoidable (and comment why)
 - **Functional components only** — no class components
 - **Named exports** — no default exports except for Next.js pages/layouts
-- **Barrel exports** — `index.ts` in each component directory (not followed yet: no `index.ts` exists under `src/components/` — ask before adding or dropping)
+- **No barrel files** — import each component from its own file (`@/components/game/GameView`); no `index.ts` exists under `src/`
 - **Comments** — explain the "why", not the "what". Add comments for non-obvious logic, game rules, and algorithm choices
 
 ### File Naming
@@ -257,8 +164,8 @@ but is unused: a **night is a room**, and `/history` groups by room.
 
 ### Supabase Patterns
 - Use `@supabase/ssr` for server-side operations
-- Browser client: `createBrowserClient()` in `lib/supabase/client.ts`
-- Server client: `createServerClient()` in `lib/supabase/server.ts`
+- Browser client: `createClient()` in `lib/supabase/client.ts`
+- Server client: `createClient()` (async) in `lib/supabase/server.ts`
 - Always handle Supabase errors explicitly — never swallow them
 - Use generated types from `supabase gen types typescript`
 
@@ -303,9 +210,11 @@ a Cloudflare tunnel was dropped in favour of Workers.
 - **Unit tests (in place, gate every PR):** `npm test` runs Vitest over card
   generation and shuffling, game setup, win detection and `bestLine`, the call
   list, the import parser, the card builder, restore, retract, stats, game
-  swaps, card styles, the library (drafts, heat, hosting, legend, logos), the
-  realtime channel drop/catch-up/queue, retry, the game store and the
-  keepalive ping. Pages and components have none.
+  swaps, the player's own `game_players` row (`own-row`), card styles, the
+  library (add-item, drafts, heat, hosting, legend, logos), the realtime channel
+  drop/catch-up/queue key, retry, paging past the 1,000-row cap, Storage URL
+  checks, Discord login parsing, the game and library stores and the keepalive
+  ping. Pages and components have none.
 - **Screenshots without his live data:** `npm run dev:mock` serves the app on
   :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
   room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
@@ -319,7 +228,7 @@ a Cloudflare tunnel was dropped in favour of Workers.
 
 ## Notes
 
-- The name is **Callout** (renamed from Squares on 2026-10-07, along with the Worker URL, repo and `callout:*` storage keys).
+- The name is **Callout** (renamed from Squares, along with the Worker URL, repo and `callout:*` storage keys).
 - This is a personal project for 3-5 friends. No need for rate limiting, abuse prevention, or enterprise features in MVP.
 - Sound effects and confetti are non-negotiable. They make the game.
 - **Desktop only.** Callout lives on a second monitor beside Discord while the
