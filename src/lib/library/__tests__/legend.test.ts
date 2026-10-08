@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Bomb, Crosshair, Flame, Skull } from 'lucide-react';
 import { cardLegend, squareGame } from '../legend';
 import { GAME_COLORS } from '@/lib/game-colors';
@@ -30,14 +30,20 @@ describe('squareGame', () => {
     expect(squareGame(LEGEND, COD)?.icon).toBe(Crosshair);
   });
 
-  it('carries an uploaded logo, and draws the icon for anything but an https URL', () => {
+  it('carries an uploaded logo, and draws the icon for anything but our game-logos bucket', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co');
     const logo = 'https://example.supabase.co/storage/v1/object/public/game-logos/rl.png?t=1';
     const withLogo = LEGEND.map((entry) => (entry.gameTagId === RL ? { ...entry, logoUrl: logo } : entry));
     expect(squareGame(withLogo, RL)?.logoUrl).toBe(logo);
     expect(squareGame(withLogo, COD)?.logoUrl).toBeNull();
     const unsafe = LEGEND.map((entry) => ({ ...entry, logoUrl: 'javascript:alert(1)' }));
     expect(squareGame(unsafe, RL)?.logoUrl).toBeNull();
+    // Any other https host is an IP leak for every friend's browser, so it draws the icon too.
+    const outside = LEGEND.map((entry) => ({ ...entry, logoUrl: 'https://tracker.example/rl.png' }));
+    expect(squareGame(outside, RL)?.logoUrl).toBeNull();
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('resolves the newer icon keys (skull, bomb) like any other', () => {
     const legend: LegendEntry[] = [

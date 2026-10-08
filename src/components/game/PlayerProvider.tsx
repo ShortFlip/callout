@@ -71,12 +71,12 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     const browserId = getBrowserId();
 
     // Look for an existing player tied to this browser. `error` and "no row"
-    // are separate answers — see step 6 above.
+    // are separate answers — see step 6 above. Through an RPC because
+    // browser_id and claim_code are not readable on the table (migration
+    // 20261007000000): knowing your browser_id is what proves the row is yours.
     const lookup = await withRetry<Player | null>(async () => {
       const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('browser_id', browserId)
+        .rpc('get_my_player', { p_browser_id: browserId })
         .maybeSingle();
       if (error) {
         console.error('Failed to look up player:', error);
@@ -128,10 +128,11 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);
 
     try {
+      // Through claim_player, the same RPC as ProfileModal's Claim: claim_code
+      // is not readable on the table (migration 20261007000000), so a direct
+      // .eq('claim_code') would be refused and every link would fail.
       const { data, error } = await supabase
-        .from('players')
-        .select('browser_id, display_name')
-        .eq('claim_code', code)
+        .rpc('claim_player', { p_claim_code: code })
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -155,17 +156,24 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     // Get auth_id from the session we created in initPlayer
     const { data: { session } } = await supabase.auth.getSession();
 
-    const { data: player, error } = await supabase
+    // No .select() on the insert: returning '*' would need SELECT on
+    // browser_id and claim_code, which the table no longer grants. The new row
+    // (with the claim code its trigger filled) comes back through the RPC.
+    const { error } = await supabase
       .from('players')
       .insert({
         browser_id: browserId,
         auth_id: session?.user.id ?? null,
         display_name: displayName,
-      })
-      .select()
-      .single();
+      });
 
     if (error) throw error; // caught by DisplayNameDialog and shown to user
+
+    const { data: player, error: readError } = await supabase
+      .rpc('get_my_player', { p_browser_id: browserId })
+      .single();
+
+    if (readError) throw readError;
 
     setPlayer(player);
     setNeedsName(false);

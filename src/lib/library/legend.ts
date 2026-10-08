@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { GAME_COLORS, GAME_ICONS, isGameColorKey, isGameIconKey } from '@/lib/game-colors';
 import type { SquareItem } from '@/types/card';
 import type { LegendEntry } from '@/types/library';
+import { ownStorageUrl } from '@/lib/storage-url';
 
 /**
  * A game as the board draws it: the colour already resolved to CSS and the
@@ -17,9 +18,13 @@ export interface BoardGame {
   logoUrl: string | null;
 }
 
-/** Only an https URL is drawn: the legend is unchecked JSON, and anything else falls back to the icon. */
+/**
+ * Only a logo in our own game-logos bucket is drawn: the legend is unchecked
+ * JSON, and an outside URL would see every friend's IP. Anything else falls
+ * back to the icon.
+ */
 function safeLogo(value: unknown): string | null {
-  return typeof value === 'string' && value.startsWith('https://') ? value : null;
+  return ownStorageUrl(value, 'game-logos');
 }
 
 /**

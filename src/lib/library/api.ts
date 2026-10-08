@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client';
 import { isGameColorKey, isGameIconKey } from '@/lib/game-colors';
 import { planImport, textKey } from '@/lib/library/card-draft';
 import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
+import { gameLogoPath } from '@/lib/storage-url';
 import type { HeatRow } from '@/lib/library/heat';
 import { isScoredRound } from '@/lib/game/stats';
 import { loadMyRoomIds } from '@/lib/game/co-players';
@@ -296,14 +297,24 @@ const LOGO_BUCKET = 'game-logos';
 /**
  * Upload a game's logo (already shrunk to a 128px PNG by the caller) and point
  * the tag at it, or clear it with `png = null`. Returns the new URL or null.
- * The file is named by the tag id so a re-upload replaces it; the ?t= stamp
- * busts the CDN cache the way avatars do. A full-colour logo's URL ends in
- * FULL_COLOUR_TAG so GameMark keeps its pixels; anything else is drawn as a
- * silhouette in the game's colour. Owner only: a blocked update fails.
+ * The file lives at <owner player id>/<tag id>.png: the storage policy only
+ * lets you write under your own player id, and naming it by the tag means a
+ * re-upload replaces it. The ?t= stamp busts the CDN cache the way avatars do.
+ * A full-colour logo's URL ends in FULL_COLOUR_TAG so GameMark keeps its
+ * pixels; anything else is drawn as a silhouette in the game's colour. Owner
+ * only: checked before anything is uploaded, and a blocked update still fails.
  */
-export async function setGameLogo(tagId: string, logo: { png: Blob; fullColour: boolean } | null): Promise<string | null> {
+export async function setGameLogo(
+  tag: Pick<Tag, 'id' | 'ownerId'>,
+  playerId: string,
+  logo: { png: Blob; fullColour: boolean } | null,
+): Promise<string | null> {
+  // The free half of the owner check: the library only lists my own tags, so a
+  // mismatch means stale state. Stop before a file lands in storage for a tag
+  // whose row I could not update anyway.
+  if (tag.ownerId !== playerId) throw new LibraryError('Only the game’s owner can change its logo.');
   const supabase = createClient();
-  const path = `${tagId}.png`;
+  const path = gameLogoPath(playerId, tag.id);
   let logoUrl: string | null = null;
   const png = logo?.png ?? null;
   if (png) {
@@ -313,10 +324,12 @@ export async function setGameLogo(tagId: string, logo: { png: Blob; fullColour: 
     if (uploadError) fail('setGameLogo: upload', 'Could not upload that logo.', uploadError);
     logoUrl = `${supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl}?t=${Date.now()}${logo?.fullColour ? FULL_COLOUR_TAG : ''}`;
   }
-  const { data, error } = await supabase.from('tags').update({ logo_url: logoUrl }).eq('id', tagId).select('id');
+  const { data, error } = await supabase.from('tags').update({ logo_url: logoUrl }).eq('id', tag.id).select('id');
   if (error) fail('setGameLogo: update', 'Could not save that logo.', error);
   expectRows('setGameLogo: update', 'Could not save that logo. Refresh and try again.', data?.length ?? 0, 1);
-  // Removing the logo also removes the file; a leftover file is harmless, so a failure here is ignored.
+  // Removing the logo also removes the file; a leftover file is harmless, so a
+  // failure here is ignored. A logo uploaded before owner folders (a flat
+  // <tagId>.png) can no longer be deleted by anyone and simply stays.
   if (!png) await supabase.storage.from(LOGO_BUCKET).remove([path]);
   return logoUrl;
 }

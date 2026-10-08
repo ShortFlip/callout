@@ -43,6 +43,18 @@ Migrations live in `supabase/migrations/` and are applied manually against the
 Supabase project (`supabase db push`, or pasted into the SQL editor). They are
 ordered by filename timestamp.
 
+Merging to `master` deploys at once, so a PR that carries a migration ships in
+this order:
+
+1. Apply the migration in the SQL editor (paste the whole file). Do it right
+   before merging: a migration that tightens access breaks the deployed build
+   until the new one is live (the file's header says when that applies).
+2. Regenerate `src/lib/supabase/types.ts`
+   (`supabase gen types typescript --linked`), or hand-edit it in the
+   generated shape.
+3. Re-mark `players.Insert.claim_code` optional (decision 0003).
+4. Merge.
+
 ## Deployment
 
 Deploys are automatic: pushing to `master` runs the GitHub Actions workflow that

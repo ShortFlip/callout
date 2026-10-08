@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { FULL_COLOUR_TAG } from '@/lib/library/logo-image';
 import { cn } from '@/lib/utils';
+import { ownStorageUrl } from '@/lib/storage-url';
 
 interface GameMarkProps {
   /** The lookalike icon, drawn when there is no logo. */
@@ -38,7 +39,10 @@ interface GameMarkProps {
  * what lets it load. Only a logo uploaded as full colour (URL tagged #color
  * by isFullColour at upload) keeps its own pixels.
  */
-export function GameMark({ icon: Icon, color, logoUrl, className, style, grow = false }: GameMarkProps) {
+export function GameMark({ icon: Icon, color, logoUrl: rawLogoUrl, className, style, grow = false }: GameMarkProps) {
+  // Checked here too, not only in the legend: library rows pass tags.logo_url
+  // straight in, and this is the one place every logo is drawn.
+  const logoUrl = ownStorageUrl(rawLogoUrl, 'game-logos');
   if (logoUrl && !logoUrl.endsWith(FULL_COLOUR_TAG)) {
     const mask = `url("${logoUrl}") center / contain no-repeat`;
     return (

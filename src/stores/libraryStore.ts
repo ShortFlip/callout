@@ -438,7 +438,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => {
 
     async setGameLogo(tagId, logo) {
       try {
-        const logoUrl = await api.setGameLogo(tagId, logo);
+        const { ownerId, tags } = get();
+        const tag = tags.find((t) => t.id === tagId);
+        if (!ownerId || !tag) throw new api.LibraryError('That game is not in your library. Refresh and try again.');
+        const logoUrl = await api.setGameLogo(tag, ownerId, logo);
         set({ tags: get().tags.map((tag) => (tag.id === tagId ? { ...tag, logoUrl } : tag)) });
         // Saved cards froze their legend when saved; patch them so "upload once"
         // reaches the board on the next night without re-saving every card.

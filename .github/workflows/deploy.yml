@@ -13,6 +13,12 @@ on:
 # deploy is never cancelled mid-flight: a half-finished `wrangler deploy` is
 # worse than waiting, so later master pushes wait behind it (GitHub keeps only
 # the newest waiting run, which is the one worth deploying anyway).
+# Least privilege for the job's GITHUB_TOKEN: it only checks the repo out.
+# Deploys authenticate to Cloudflare with their own secret, and nothing here
+# comments on PRs or writes to the repo.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
