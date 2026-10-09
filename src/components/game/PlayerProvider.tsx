@@ -11,12 +11,18 @@ import { DisplayNameDialog } from './DisplayNameDialog';
 import { ProfileModal } from './ProfileModal';
 import { getSavedTheme, applyTheme } from '@/lib/theme';
 import { ServerUnreachable } from '@/components/layout/ServerUnreachable';
+import { SignInWall } from '@/components/layout/SignInWall';
 import { withRetry } from '@/lib/utils/retry';
 import type { Player } from '@/types/player';
 
 // Identity gates every page, so it retries briefly (~3.5 s) before admitting
 // the server is unreachable, rather than the rejoin path's ~15 s.
 const IDENTITY_RETRY_DELAYS_MS = [500, 1000, 2000];
+
+// Anonymous play exists only for `npm run dev:mock` (.env.mock sets this),
+// whose fake Supabase has no OAuth. Unset in every real build, so the live app
+// never mints an anonymous player (decision 0007).
+const ALLOW_ANONYMOUS = process.env.NEXT_PUBLIC_ALLOW_ANONYMOUS === '1';
 
 interface PlayerProviderProps {
   children: React.ReactNode;
@@ -27,11 +33,11 @@ interface PlayerProviderProps {
  * name prompt if this is the user's first visit.
  *
  * Flow:
- * 1. Ensure we have a Supabase auth session — sign in anonymously if not.
- *    A Discord session goes to resolveDiscordPlayer instead (by login, not
- *    by browser) and skips the steps below.
- * 2. Apply a ?claim= link if there is one, then get (or create) the browser
- *    UUID from localStorage
+ * 1. Apply a ?claim= link if there is one: it points this browser at a player,
+ *    which the Discord sign-in then links (resolveDiscordPlayer step 2).
+ * 2. A Discord session → resolveDiscordPlayer (by login, not by browser).
+ *    No session → the SignInWall. Only the mock goes on to the anonymous
+ *    steps below.
  * 3. Look up existing player record by browser_id
  * 4. If found → load into store, done
  * 5. If not found → show DisplayNameDialog → create player → load into store
@@ -44,6 +50,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   const [needsName, setNeedsName] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   useEffect(() => {
     // Restore saved theme on every page load
@@ -64,13 +71,22 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       toast.error(`Discord sign-in failed: ${oauthError.message}`);
     }
 
-    // Ensure we always have a Supabase auth session. getSession() also finishes
-    // a Discord sign-in: the browser client swaps the ?code= for a session.
-    // Anonymous sessions give us an auth.uid() for RLS without requiring sign-up.
+    // A claim link (?claim=CODE) runs first, before anything reads the
+    // browserId, so a friend whose browser forgot them is pointed back at their
+    // row and the Discord sign-in after it links that row, not a new one.
+    await applyClaimLink(supabase);
+
+    // getSession() also finishes a Discord sign-in: the browser client swaps
+    // the ?code= for a session.
     let { data: { session } } = await supabase.auth.getSession();
     const discord = discordProfile(session?.user);
     if (discord && session) {
       await resolveDiscordPlayer(session.user.id, discord);
+      return;
+    }
+    if (!ALLOW_ANONYMOUS) {
+      setLoading(false);
+      setNeedsSignIn(true);
       return;
     }
     if (!session) {
@@ -82,10 +98,6 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       }
     }
 
-    // A claim link (?claim=CODE) has to run before the browserId is read, so a
-    // friend who clicks it lands as their own player and never sees the name
-    // prompt, which would otherwise leave a throwaway player row behind.
-    await applyClaimLink(supabase);
     const browserId = getBrowserId();
 
     // Look for an existing player tied to this browser. `error` and "no row"
@@ -298,6 +310,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   // Replaces the page rather than overlaying it: every page below needs a
   // player, and none of them has anything useful to show without one.
   if (unreachable) return <ServerUnreachable onRetry={initPlayer} />;
+  if (needsSignIn) return <SignInWall />;
 
   return (
     <>

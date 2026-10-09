@@ -13,7 +13,7 @@ product.
 - Next.js (App Router) + React + TypeScript (strict)
 - Tailwind CSS + shadcn/ui, sonner for toasts
 - Zustand for game state
-- Supabase — Postgres, Auth (anonymous), Storage, and Realtime (broadcast +
+- Supabase — Postgres, Auth (Discord login), Storage, and Realtime (broadcast +
   postgres_changes fallback)
 - Cloudflare Workers (via OpenNext) for hosting
 

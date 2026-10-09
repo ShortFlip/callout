@@ -5,9 +5,11 @@ screen can be opened and screenshotted without touching the live project.
 
 ## Why
 
-Every page load runs `supabase.auth.signInAnonymously()`
-(`src/components/game/PlayerProvider.tsx`). Against the live project, each
-headless browser would create a real anonymous user. There is no Docker here,
+The live app makes everyone sign in with Discord, which a headless browser
+cannot do. The mock has no OAuth, so `.env.mock` sets
+`NEXT_PUBLIC_ALLOW_ANONYMOUS=1` and `src/components/game/PlayerProvider.tsx`
+falls back to `signInAnonymously()`; set it to 0 to screenshot the sign-in
+wall. Against the live project, each headless browser would create a real user. There is no Docker here,
 so `supabase start` is not an option. This server answers the same calls on
 `127.0.0.1:54399` and keeps everything in memory.
 
