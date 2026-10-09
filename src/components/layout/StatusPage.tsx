@@ -5,8 +5,11 @@ import { PILL } from '@/lib/pill';
 interface StatusPageProps {
   /** The pill's word: "Offline", "No Room", "Error". */
   pill: string;
-  /** Amber for "something went wrong, try again"; rose for "that does not exist". */
-  tone: 'accent' | 'destructive';
+  /**
+   * Amber for "something went wrong, try again"; rose for "that does not
+   * exist"; violet for the sign-in card, which is a way in, not a dead end.
+   */
+  tone: 'accent' | 'destructive' | 'primary';
   title: string;
   /** One or two sentences, sentence case. */
   children: ReactNode;
@@ -25,7 +28,7 @@ export function StatusPage({ pill, tone, title, children, actions }: StatusPageP
       <div className="glass rounded-2xl w-full max-w-sm p-8 text-center space-y-4">
         {/* A tinted pill: the colour says which kind of dead end before the words do. */}
         <span
-          className={cn(PILL, tone === 'accent' ? 'text-accent' : 'text-destructive')}
+          className={cn(PILL, { accent: 'text-accent', destructive: 'text-destructive', primary: 'text-primary' }[tone])}
           style={{ backgroundColor: `color-mix(in oklab, var(--${tone}) 14%, transparent)` }}
         >
           {pill}

@@ -2,11 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Camera, Loader2, Copy, KeyRound, LogIn, BadgeCheck } from 'lucide-react';
+import { Camera, Loader2, LogIn, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePlayerStore } from '@/stores/playerStore';
-import { setBrowserId } from '@/lib/utils/browser-id';
-import { copyText } from '@/lib/utils/copy-link';
+import { signInWithDiscord } from '@/lib/auth/sign-in';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,8 +35,6 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [claimInput, setClaimInput] = useState('');
-  const [isClaiming, setIsClaiming] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   // The modal is also opened from the header, which flips `open` without going
@@ -55,7 +52,6 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
       setDisplayName(player?.display_name ?? '');
       setPreviewUrl(null);
       setPendingFile(null);
-      setClaimInput('');
     }
     onOpenChange(nextOpen);
   }
@@ -69,66 +65,12 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
     setPendingFile(file);
   }
 
-  /**
-   * Become an existing player on this machine.
-   *
-   * Deliberately read-only against the database: we look the row up by code and
-   * point THIS browser's localStorage at its browser_id (Decision C). The other
-   * machine keeps working, and nothing can be broken by a mistyped code.
-   */
-  async function handleClaim() {
-    if (!player) return;
-    const code = claimInput;
-    if (code.length !== 8) return;
-
-    setIsClaiming(true);
-    try {
-      const supabase = createClient();
-      // An RPC, not a table read: claim codes are no longer readable, so a
-      // code can only be checked one at a time, never listed.
-      const { data, error } = await supabase
-        .rpc('claim_player', { p_claim_code: code })
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        toast.error('No player has that code');
-        return;
-      }
-      if (data.id === player.id) {
-        toast('That’s already you');
-        return;
-      }
-
-      setBrowserId(data.browser_id);
-      toast.success(`Welcome back, ${data.display_name}`);
-      // Identity is resolved once on mount, so a reload is the honest way to
-      // swap it — every store and every open subscription starts over.
-      setTimeout(() => window.location.reload(), 600);
-    } catch (err) {
-      console.error('Claim failed:', err);
-      toast.error('Could not check that code. Try again.');
-    } finally {
-      setIsClaiming(false);
-    }
-  }
-
-  /**
-   * Leave for Discord and come back to this same page. PlayerProvider finishes
-   * the sign-in on return and links this browser's player to the login.
-   */
+  // Only reachable on the mock (anonymous play), since the live app signs
+  // everyone in at the wall; kept so the mock can still exercise linking.
   async function handleDiscordSignIn() {
     setIsSigningIn(true);
-    const { error } = await createClient().auth.signInWithOAuth({
-      provider: 'discord',
-      options: { redirectTo: window.location.href },
-    });
-    // On success the browser is already navigating away; only a failure stays.
-    if (error) {
-      console.error('Discord sign-in failed:', error);
-      toast.error(`Discord sign-in failed: ${error.message}`);
-      setIsSigningIn(false);
-    }
+    await signInWithDiscord();
+    setIsSigningIn(false);
   }
 
   async function handleSave() {
@@ -282,59 +224,6 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                 </p>
               </>
             )}
-          </div>
-
-          {/* Claim code — carry this identity to another machine */}
-          <div className="space-y-2">
-            <p className={SECTION_LABEL}>
-              Claim Code
-            </p>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-              <span className="flex-1 font-mono text-[20px] font-bold tracking-[0.12em]">
-                {player.claim_code}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyText(player.claim_code, 'Claim Code Copied')}
-                aria-label="Copy Claim Code"
-              >
-                <Copy className="w-4 h-4" strokeWidth={1.75} />
-              </Button>
-            </div>
-            <p className="text-[13px] text-muted-foreground">
-              Enter this on another PC to be you again.
-            </p>
-
-            {/* A signed-in browser is found by its Discord login, never by
-                browser_id, so pointing it at another row would do nothing. */}
-            {!linkedAs && <div className="pt-3 border-t border-border space-y-2">
-              <Label htmlFor="claim-input" className="text-sm font-medium">Have a Code?</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="claim-input"
-                  value={claimInput}
-                  // Same normalization as the room code input: uppercase and
-                  // drop the characters the alphabet never produces.
-                  onChange={(e) =>
-                    setClaimInput(e.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 8))
-                  }
-                  placeholder="XXXXXXXX"
-                  className="font-mono tracking-[0.12em] uppercase"
-                  maxLength={8}
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleClaim}
-                  disabled={isClaiming || claimInput.length !== 8}
-                >
-                  {isClaiming
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <KeyRound className="w-4 h-4 mr-2" strokeWidth={1.75} />}
-                  Use Code
-                </Button>
-              </div>
-            </div>}
           </div>
 
           {/* Stats */}

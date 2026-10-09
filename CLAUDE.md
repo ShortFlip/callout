@@ -2,7 +2,7 @@
 
 > A real-time multiplayer bingo platform for small friend groups.
 
-**Callout** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions. Nobody makes an account: play starts on an anonymous session, and signing in with Discord is an optional way to keep one identity across PCs.
+**Callout** is a web-hosted, real-time multiplayer bingo app. A host creates a custom bingo card template, starts a game room, and friends join via a short room code. The host calls items from a caller panel, players mark squares on their synced boards, and the system detects/verifies wins. Game history, leaderboards, and stats persist across sessions. You sign in with Discord: the login is the identity, so you are one player on every PC. No email or passwords.
 
 **Target audience:** 3-5 friends playing recurring bingo nights.
 
@@ -19,7 +19,7 @@
 | State Management | Zustand | 5.x |
 | Database | Supabase (PostgreSQL) | - |
 | Real-time | Supabase Realtime (WebSocket channels) | - |
-| Auth | Supabase Auth (anonymous by default; optional Discord login; no email) | - |
+| Auth | Supabase Auth (Discord login, required; anonymous only on the mock; no email) | - |
 | File Storage | Supabase Storage (images) | - |
 | Testing | Vitest | 3.x |
 | Hosting | Cloudflare Workers (OpenNext), deployed by GitHub Actions on push to `master` | - |
@@ -70,9 +70,11 @@ The payload types live in `useRealtimeRoom.ts`.
 **Authority model:** Host is the source of truth for game progression. Only the host can call items and reset rounds.
 
 ### Identity, cards, wins
-- Identity is a Supabase session. Anonymous play finds its player by a `localStorage` `browserId`, and a
-  new PC re-points at an existing player with `players.claim_code`. A Discord
-  login finds the player by `auth_id` instead (decision 0007).
+- Identity is a Discord login: the player is found by `auth_id`, and anyone
+  not signed in sees `SignInWall`. A browser's first sign-in links the row its
+  `browserId` (or a `?claim=` link) points at; after that the browser does not
+  matter. Anonymous play survives only behind `NEXT_PUBLIC_ALLOW_ANONYMOUS`,
+  which `.env.mock` sets for the mock (decision 0007).
 - **Seed-based RNG:** Use a seeded PRNG (e.g., `mulberry32`) so each player's card is reproducible from `(templateId, gameSeed, playerId)`. Every round draws N² items from the template's pool (Fisher-Yates, or column-locked); the card is also stored in `game_players.card_data`.
 
 ### Win Detection
@@ -108,7 +110,7 @@ callout/
 │   │   │                         #   CallerPanel/CalledItems are traditional mode only;
 │   │   │                         #   PlayerProvider resolves identity at the app root
 │   │   ├── home/  library/  stats/
-│   │   ├── layout/               # StatusPage (offline/no-room/error screens), LoadError
+│   │   ├── layout/               # StatusPage (offline/no-room/error screens), SignInWall, LoadError
 │   │   │                         #   (failed read + Try Again), CalloutMark (logo)
 │   │   └── ui/                   # shadcn primitives + PlayerAvatar, skeleton-rows
 │   ├── lib/
@@ -117,6 +119,7 @@ callout/
 │   │   │                         #   stats, swap-games; own-row.ts = this player's game_players row
 │   │   ├── library/  realtime/   # realtime: drop-channel (0006), catch-up reads, send queue key
 │   │   ├── auth/discord.ts       # Discord profile from a session (0007)
+│   │   ├── auth/sign-in.ts       # signInWithDiscord, shared by the wall and the profile
 │   │   ├── utils/                # browser-id, last-room, copy-link, player-color, retry
 │   │   ├── storage-url.ts        # Only our own Storage URLs get drawn as images
 │   │   ├── keepalive.ts          # Supabase ping for the Worker Cron Trigger (pure, no Next)
@@ -218,7 +221,8 @@ a Cloudflare tunnel was dropped in favour of Workers.
 - **Screenshots without his live data:** `npm run dev:mock` serves the app on
   :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
   room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
-  it; a plain `npm run dev` signs in anonymously against the LIVE project.
+  it, with anonymous play switched on (`.env.mock`), since the mock has no OAuth;
+  a plain `npm run dev` shows the Discord sign-in wall against the LIVE project.
 - **Live gates (in place, not in CI):** each phase is proved against two real
   browser contexts via `.playwright-mcp/pw.cjs` (a CDP driver) pointed at the dev
   server, printing `GATE <name>: PASS/FAIL` lines.
@@ -245,7 +249,7 @@ Read the file before changing the code it names. Each keeps the original text ve
 - Every room keeps a `template_id` (unsaved cards are `saved = false` rows; Remove unsaves, never deletes); owner-only writes check the returned row count; after regenerating types, re-mark `players.Insert.claim_code` optional — docs/decisions/0003-item-library.md
 - The card is a list he fills: new cards start empty, Add never evicts, Fill Empty is the only random step, and nothing else moves a square — docs/decisions/0004-card-is-a-list-he-fills.md
 - Design audit rulings: captions are Title Case via SECTION_LABEL, radius caps at 10 (panels 10, cards 8, controls 6), loading lists use SkeletonRows and spinners live only in their button — docs/decisions/0005-design-audit-2026-10-04.md
-- A Discord session finds its player by `auth_id`, never `browser_id`; rows change hands only via `link_player`; linked players wear their Discord avatar — docs/decisions/0007-discord-login-is-the-identity.md
+- Discord sign-in is required (anonymous only on the mock); a session finds its player by `auth_id`, never `browser_id`; rows change hands only via `link_player`; one row per login; linked players wear their Discord avatar — docs/decisions/0007-discord-login-is-the-identity.md
 - Never call `removeChannel` inside that channel's own status callback; a dropped channel goes through `createChannelDropper` (once, on a microtask) and only its first report moves the backoff — docs/decisions/0006-dropped-channel-removed-once.md
 
 ### Plans
