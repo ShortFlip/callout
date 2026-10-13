@@ -46,99 +46,13 @@ defaults; follow its guardrails and ask.
 
 ## Architecture
 
-### Data Flow
-```
-Browser (Player) ←→ Supabase Realtime Channel ←→ Browser (Host)
-                          ↕
-                    Supabase PostgreSQL
-```
+Full detail (broadcast list, identity, seeded cards, win detection): `docs/architecture.md`. Where things live: `docs/project-structure.md`.
 
-No server code runs in the game loop. Win verification is **client-side**: the
-claimant's own tab detects the pattern, claims it, and the claim is broadcast to
-everyone. There is no Edge Function and no server authority over the result.
-That is a deliberate call for a three-friend honor-system game — see "Next Up".
-
-### Real-time Game Sync
-Each game room subscribes to a Supabase Realtime channel: `room:{roomCode}`.
-Broadcasts are sent from `RoomClient.tsx` and received in `useRealtimeRoom`:
-`game_started`, `item_called`, `mark_updated`, `bingo_confirmed` (sent by the
-winner's own tab), `bingo_retracted` (the winner unmarked), `cards_swapped`,
-`style_changed`, `room_closed`. Join/leave is Presence `sync`. A
-`postgres_changes` subscription on `rooms` and `games` replays a missed broadcast.
-The payload types live in `useRealtimeRoom.ts`.
-
-**Authority model:** Host is the source of truth for game progression. Only the host can call items and reset rounds.
-
-### Identity, cards, wins
-- Identity is a Discord login: the player is found by `auth_id`, and anyone
-  not signed in sees `SignInWall`. A browser's first sign-in links the row its
-  `browserId` (or a `?claim=` link) points at; after that the browser does not
-  matter. Anonymous play survives only behind `NEXT_PUBLIC_ALLOW_ANONYMOUS`,
-  which `.env.mock` sets for the mock (decision 0007).
-- **Seed-based RNG:** Use a seeded PRNG (e.g., `mulberry32`) so each player's card is reproducible from `(templateId, gameSeed, playerId)`. Every round draws N² items from the template's pool (Fisher-Yates, or column-locked); the card is also stored in `game_players.card_data`.
-
-### Win Detection
-Runs in the browser on every mark (`src/lib/game/win-detection.ts`). Checks the
-player's marks against each enabled pattern:
-- **Row / Column / Diagonal / Four Corners / Blackout**; `custom` is typed but
-  matches nothing yet (`matchesPattern` returns false)
-- `bestLine()` returns the closest incomplete line, which drives the "one away"
-  label, the hot lane on my board, and every rail miniature's status
-
-A detected win auto-claims — there is no BINGO button. The round keeps running
-so second place can still happen.
-
-The schema is `supabase/migrations/` plus the generated `src/lib/supabase/types.ts`.
-
----
-
-## Project Structure
-
-Directories, plus a note only where the filename does not say it. Tests sit in
-`__tests__/` beside the code they cover.
-
-```
-callout/
-├── src/
-│   ├── app/                      # Pages: / (create, join, Rejoin chip), /library,
-│   │                             #   /room/[code], /history, /leaderboard; error.tsx
-│   │                             #   and not-found.tsx; globals.css = tokens, themes, utilities
-│   ├── components/
-│   │   ├── board/                # BingoBoard (grid, hot lane), BingoSquare, MiniBoard (rail), GameMark
-│   │   ├── game/                 # RoomClient = room state machine + all Supabase writes;
-│   │   │                         #   GameLobby, GameView (hero board + rail), WinBanner, GameOver;
-│   │   │                         #   CallerPanel/CalledItems are traditional mode only;
-│   │   │                         #   PlayerProvider resolves identity at the app root
-│   │   ├── home/  library/  stats/
-│   │   ├── layout/               # StatusPage (offline/no-room/error screens), SignInWall, LoadError
-│   │   │                         #   (failed read + Try Again), CalloutMark (logo)
-│   │   └── ui/                   # shadcn primitives + PlayerAvatar, skeleton-rows
-│   ├── lib/
-│   │   ├── supabase/             # client, server, generated types, paging.ts (reads past 1,000 rows)
-│   │   ├── game/                 # Pure rules: shuffle, win-detection, game-setup, restore, retract,
-│   │   │                         #   stats, swap-games; own-row.ts = this player's game_players row
-│   │   ├── library/  realtime/   # realtime: drop-channel (0006), catch-up reads, send queue key
-│   │   ├── auth/discord.ts       # Discord profile from a session (0007)
-│   │   ├── auth/sign-in.ts       # signInWithDiscord, shared by the wall and the profile
-│   │   ├── utils/                # browser-id, last-room, copy-link, player-color, retry
-│   │   ├── storage-url.ts        # Only our own Storage URLs get drawn as images
-│   │   ├── keepalive.ts          # Supabase ping for the Worker Cron Trigger (pure, no Next)
-│   │   └── dev-state.ts          # `?state=` harness, DEV-only, stripped from prod
-│   ├── stores/                   # Zustand: gameStore, playerStore, libraryStore
-│   ├── hooks/                    # useRealtimeRoom (the only channel owner), useGameState, usePlayer
-│   └── types/
-├── supabase/migrations/          # Timestamped SQL, applied by hand (README "Database")
-├── scripts/mock-supabase/        # Fake Supabase behind `npm run dev:mock`
-├── docs/                         # decisions/ (the index below), audits/, plans/, spec/
-├── .design/                      # AUDIT-PUNCHLIST.md, mockups/ (tracked); refs/ gitignored
-├── .github/workflows/            # deploy.yml (PR gates, master deploy), keepalive.yml
-├── custom-worker.ts              # Worker entry: OpenNext fetch + keepalive Cron handler
-└── DESIGN.md, README.md, wrangler.toml, open-next.config.ts, next.config.ts, vitest.config.ts
-```
-
-Styling is Tailwind v4 — the theme lives in `globals.css` (`@theme inline`), so
-there is no `tailwind.config.ts`. The `game_nights` table exists in the schema
-but is unused: a **night is a room**, and `/history` groups by room.
+- No server code runs in the game loop. A win is whatever the claimant's tab detects (decision 0002).
+- The host is the source of truth for game progression: only the host calls items and resets rounds.
+- Realtime lives on `room:{roomCode}`; only `useRealtimeRoom` owns the channel, and broadcast payload types live there.
+- The schema is `supabase/migrations/` plus the generated `src/lib/supabase/types.ts`; a **night is a room** (`game_nights` is unused).
+- Styling is Tailwind v4 with the theme in `globals.css` (`@theme inline`); there is no `tailwind.config.ts`.
 
 ---
 
@@ -194,39 +108,15 @@ Running locally, type check, lint and migrations: `README.md`.
 
 ## Deployment
 
-Every PR into `master` runs `.github/workflows/deploy.yml`'s gates (`npm test`,
-`tsc --noEmit`, lint, `cf:build`, `wrangler deploy --dry-run`); a push to
-`master` runs the same gates and then `wrangler deploy` onto **Cloudflare
-Workers**. The `NEXT_PUBLIC_*` Supabase values are repo secrets, baked in at
-build time. The Worker entry is `custom-worker.ts`, which wraps OpenNext's
-generated `.open-next/worker.js` and adds a daily Cron Trigger that pings
-Supabase (`src/lib/keepalive.ts`); its `SUPABASE_URL`/`SUPABASE_ANON_KEY` are
-runtime vars passed with `--var` on the master deploy, never committed, and
-`keep_vars` stops a local `cf:deploy` from wiping them. There
-is no Docker image and nothing runs on Sanctuary — the plan to self-host behind
-a Cloudflare tunnel was dropped in favour of Workers.
+A push to `master` deploys to Cloudflare Workers through `.github/workflows/deploy.yml`; PRs run the same gates plus a dry run. Never Cloudflare Pages, and never a local `cf:deploy` without `keep_vars` in `wrangler.toml`. Details: README "Deployment".
 
 ---
 
-## Testing Strategy
+## Testing
 
-- **Unit tests (in place, gate every PR):** `npm test` runs Vitest over card
-  generation and shuffling, game setup, win detection and `bestLine`, the call
-  list, the import parser, the card builder, restore, retract, stats, game
-  swaps, the player's own `game_players` row (`own-row`), card styles, the
-  library (add-item, drafts, heat, hosting, legend, logos), the realtime channel
-  drop/catch-up/queue key, retry, paging past the 1,000-row cap, Storage URL
-  checks, Discord login parsing, the game and library stores and the keepalive
-  ping. Pages and components have none.
-- **Screenshots without his live data:** `npm run dev:mock` serves the app on
-  :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
-  room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
-  it, with anonymous play switched on (`.env.mock`), since the mock has no OAuth;
-  a plain `npm run dev` shows the Discord sign-in wall against the LIVE project.
-- **Live gates (in place, not in CI):** each phase is proved against two real
-  browser contexts via `.playwright-mcp/pw.cjs` (a CDP driver) pointed at the dev
-  server, printing `GATE <name>: PASS/FAIL` lines.
-- **Not done:** component tests, and a scripted end-to-end run in CI.
+- `npm test` (Vitest) gates every PR; pages and components have no tests. Coverage list: README "Tests".
+- Every visual check runs on `npm run dev:mock` (:3123, fake Supabase, anonymous play on); plain `npm run dev` hits the LIVE project behind the Discord wall.
+- Live gates run two real browser contexts through `.playwright-mcp/pw.cjs`, printing `GATE <name>: PASS/FAIL`.
 
 ---
 
@@ -268,20 +158,6 @@ The first-written plan, kept verbatim in `docs/spec/`. Where it disagrees with t
 
 ---
 
-## Next Up
+## Known gaps
 
-Known gaps, deliberate or otherwise. None of these block a game night.
-
-- **Reconnect backoff has met a dropped socket only on the mock.** Killing the
-  mock Supabase under a room exercised the 1–2–4–8s backoff end to end (0006);
-  a real Supabase outage has not been seen yet.
-- **RLS is wide open and win verification is client-side.** Insert and update
-  are `true` for every game table, and a win is whatever the claimant's browser
-  says it is. Deliberate — three friends on a voice call, no adversary. It is
-  also the one thing that must change before anyone else is invited in.
-- **Traditional caller mode was restyled, not redesigned.** `CallerPanel` and
-  `CalledItems` were dropped into rail glass cards and left alone. Honor-system
-  play is the real mode.
-- **The light theme's glass inversion has never been reviewed on a real game
-  screen.** Latte was checked on the landing page only; the header, banner and
-  rail all assume white-on-dark translucency.
+Tracked as GitHub Issues (`gh issue list`); none block a game night. RLS and client-side wins are #1 (decision 0002).
