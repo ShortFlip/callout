@@ -69,3 +69,37 @@ Workers with Assets**. Pull requests run the same checks plus a
 Two independent pingers keep the free-tier Supabase project from being paused
 for inactivity: a scheduled GitHub workflow twice a week, and a daily Cloudflare
 Cron Trigger on the Worker itself (`custom-worker.ts`).
+
+### Worker details
+
+Every PR into `master` runs `.github/workflows/deploy.yml`'s gates (`npm test`,
+`tsc --noEmit`, lint, `cf:build`, `wrangler deploy --dry-run`); a push to
+`master` runs the same gates and then `wrangler deploy` onto **Cloudflare
+Workers**. The `NEXT_PUBLIC_*` Supabase values are repo secrets, baked in at
+build time. The Worker entry is `custom-worker.ts`, which wraps OpenNext's
+generated `.open-next/worker.js` and adds a daily Cron Trigger that pings
+Supabase (`src/lib/keepalive.ts`); its `SUPABASE_URL`/`SUPABASE_ANON_KEY` are
+runtime vars passed with `--var` on the master deploy, never committed, and
+`keep_vars` stops a local `cf:deploy` from wiping them. There
+is no Docker image and nothing runs on Sanctuary — the plan to self-host behind
+a Cloudflare tunnel was dropped in favour of Workers.
+
+## Tests
+
+- **Unit tests (in place, gate every PR):** `npm test` runs Vitest over card
+  generation and shuffling, game setup, win detection and `bestLine`, the call
+  list, the import parser, the card builder, restore, retract, stats, game
+  swaps, the player's own `game_players` row (`own-row`), card styles, the
+  library (add-item, drafts, heat, hosting, legend, logos), the realtime channel
+  drop/catch-up/queue key, retry, paging past the 1,000-row cap, Storage URL
+  checks, Discord login parsing, the game and library stores and the keepalive
+  ping. Pages and components have none.
+- **Screenshots without his live data:** `npm run dev:mock` serves the app on
+  :3123 against a local fake Supabase (scripts/mock-supabase/README.md has the
+  room codes for Lobby, game, Swap, win and Game Over). Every visual check uses
+  it, with anonymous play switched on (`.env.mock`), since the mock has no OAuth;
+  a plain `npm run dev` shows the Discord sign-in wall against the LIVE project.
+- **Live gates (in place, not in CI):** each phase is proved against two real
+  browser contexts via `.playwright-mcp/pw.cjs` (a CDP driver) pointed at the dev
+  server, printing `GATE <name>: PASS/FAIL` lines.
+- **Not done:** component tests, and a scripted end-to-end run in CI.
